@@ -43,7 +43,7 @@ jobs:
       #  working-directory: ./src
 
       - name: Pack
-        run: dotnet pack ./Tavenem.Blazor.MarkdownEditor.csproj --include-symbols -p:SymbolPackageFormat=snupkg -p:PackageVersion=${{ env.VERSION }} --configuration Release --no-build --nologo --output .
+        run: dotnet pack ./Tavenem.Blazor.IndexedDB.csproj --include-symbols -p:SymbolPackageFormat=snupkg -p:PackageVersion=${{ env.VERSION }} --configuration Release --no-build --nologo --output .
         working-directory: ./src
 
       - name: Push to NuGet
