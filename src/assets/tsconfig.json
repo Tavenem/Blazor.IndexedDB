@@ -1,0 +1,24 @@
+{
+  "compileOnSave": true,
+  "compilerOptions": {
+    "allowUmdGlobalAccess": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "importHelpers": true,
+    "module": "ES2020",
+    "moduleResolution": "Node",
+    "noEmitOnError": true,
+    "removeComments": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "ES2020",
+    "types": []
+  },
+  "exclude": [
+    "node_modules",
+    "wwwroot",
+    "obj",
+    "bin"
+  ]
+}

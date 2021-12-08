@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.31911.260
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tavenem.Blazor.IndexedDB", "Tavenem.Blazor.IndexedDB.csproj", "{A56986C6-9F23-4856-B399-F6531BF45D48}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{14625761-1E72-4329-9AD2-1B9EAAC59EBA}"
+	ProjectSection(SolutionItems) = preProject
+		..\.gitignore = ..\.gitignore
+		..\.github\workflows\build.yml = ..\.github\workflows\build.yml
+		..\docs\CHANGELOG.md = ..\docs\CHANGELOG.md
+		..\docs\CODE_OF_CONDUCT.md = ..\docs\CODE_OF_CONDUCT.md
+		..\docs\CONTRIBUTING.md = ..\docs\CONTRIBUTING.md
+		..\LICENSE = ..\LICENSE
+		..\.github\workflows\publish.yml = ..\.github\workflows\publish.yml
+		..\README.md = ..\README.md
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tavenem.Blazor.IndexedDB.Sample", "..\sample\Tavenem.Blazor.IndexedDB.Sample.csproj", "{29F661DB-82A3-4B8B-9479-49724178A222}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A56986C6-9F23-4856-B399-F6531BF45D48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A56986C6-9F23-4856-B399-F6531BF45D48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A56986C6-9F23-4856-B399-F6531BF45D48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A56986C6-9F23-4856-B399-F6531BF45D48}.Release|Any CPU.Build.0 = Release|Any CPU
+		{29F661DB-82A3-4B8B-9479-49724178A222}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29F661DB-82A3-4B8B-9479-49724178A222}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29F661DB-82A3-4B8B-9479-49724178A222}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29F661DB-82A3-4B8B-9479-49724178A222}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CECFC213-4B8B-46A9-97E2-BEC12575A1F1}
+	EndGlobalSection
+EndGlobal

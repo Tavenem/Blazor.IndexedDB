@@ -1,0 +1,36 @@
+﻿@page "/"
+
+<PageTitle>Tavenem IndexedDB Example</PageTitle>
+
+<h1>Tavenem IndexedDB</h1>
+
+<h2>Item Count: @Count</h2>
+
+<h2>Items:</h2>
+<button @onclick="OnRefreshAsync" type="button">Refresh</button>
+<button @onclick="OnClearAsync" type="button">Clear</button>
+<button @onclick="OnDeleteDatabaseAsync" type="button">Delete Database</button>
+
+<ul>
+    @foreach (var item in Items)
+    {
+        <li @key="item.Id">
+            @if (item.IsUpdating)
+            {
+                <input @bind-value="item.NewValue" type="text">
+                <button @onclick="@(_ => OnCancelEdit(item))" type="button">Cancel</button>
+                <button @onclick="@(_ => OnUpdateAsync(item))" type="button">Update</button>
+            }
+            else
+            {
+                <span>@item.Value</span>
+                <button @onclick="@(_ => OnEdit(item))" type="button">Edit</button>
+                <button @onclick="@(_ => OnRefreshItemAsync(item))" type="button">Refresh</button>
+                <button @onclick="@(_ => OnDeleteAsync(item))" type="button">Delete</button>
+            }
+        </li>
+    }
+</ul>
+
+<input @bind-value="Value" type="text">
+<button @onclick="@(_ => OnAddAsync())" type="button">Add</button>

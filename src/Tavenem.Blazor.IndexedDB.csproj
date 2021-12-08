@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <PackageId>Tavenem.Blazor.IndexedDB</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Wil Stead</Authors>
+    <Description>IndexedDB wrapper for Blazor.</Description>
+    <Copyright>Copyright © 2021 Wil Stead</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Tavenem/Blazor.IndexedDB</PackageProjectUrl>
+    <PackageIcon>tavenem_128.png</PackageIcon>
+    <PackageTags>blazor indexeddb</PackageTags>
+    <RepositoryUrl>https://github.com/Tavenem/Blazor.IndexedDB.git</RepositoryUrl>
+    <RepositoryBranch>main</RepositoryBranch>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+    <Content Update="assets\**" Pack="false">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+    <Content Include="assets\tavenem-indexeddb.ts" />
+    <None Include="tavenem_128.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
+    <ClientAssetsBuildOutputParameter>-d</ClientAssetsBuildOutputParameter>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ClientAssetsInputs Remove="assets\package.json" />
+    <ClientAssetsInputs Remove="assets\tsconfig.json" />
+    <ClientAssetsInputs Remove="assets\rollup.config.js" />
+    <ClientAssetsInputs Remove="assets\tavenem-indexeddb.ts" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.ClientAssets" Version="0.1.0-alpha.21528.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="6.0.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "name": "tavenemblazorindexeddb",
+  "private": true,
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "13.0.6",
+    "@rollup/plugin-typescript": "8.3.0",
+    "idb": "7.0.0",
+    "rollup": "2.60.2",
+    "rollup-plugin-terser": "7.0.2",
+    "tslib": "2.3.1",
+    "typescript": "4.5.2"
+  },
+  "scripts": {
+    "build": "npm run build:release",
+    "build:Release": "rollup -c --environment build:Release",
+    "build:Debug": "rollup -c --environment build:Debug"
+  }
+}

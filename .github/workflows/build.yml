@@ -1,0 +1,41 @@
+name: build
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v1
+        with:
+          # Semantic version range syntax or exact version of a dotnet version
+          dotnet-version: '6.0.x'
+      
+      - name: Use Node.js 17.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 17.x
+
+      - name: Install dependencies
+        run: dotnet restore
+        working-directory: ./src
+
+      - name: npm ci
+        run: npm ci
+        working-directory: ./src/assets
+
+      - name: npm build
+        run: npm run build --if-present
+        working-directory: ./src/assets
+
+      - name: Build
+        run: dotnet build --configuration Debug --no-restore --nologo
+        working-directory: ./src
+
+      #- name: Test
+      #  run: dotnet test --no-build --verbosity normal
+      #  working-directory: ./src

@@ -1,0 +1,25 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+article {
+    padding-top: 1.1rem;
+    padding-bottom: 1.5rem;
+}
+
+main {
+    flex: 1;
+}
+
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    article {
+        padding-left: 2rem !important;
+        padding-right: 1.5rem !important;
+    }
+}

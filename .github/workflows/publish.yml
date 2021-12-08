@@ -1,0 +1,69 @@
+name: publish
+env:
+  VERSION: '1.0.0'
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    name: build, pack, publish, and release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v1
+        with:
+          # Semantic version range syntax or exact version of a dotnet version
+          dotnet-version: '6.0.x'
+      
+      - name: Use Node.js 17.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 17.x
+
+      - name: Install dependencies
+        run: dotnet restore
+        working-directory: ./src
+
+      - name: npm ci
+        run: npm ci
+        working-directory: ./src/assets
+
+      - name: npm build
+        run: npm run build --if-present
+        working-directory: ./src/assets
+
+      - name: Build
+        run: dotnet build --configuration Release -p:Version=${{ env.VERSION }} --no-restore --nologo
+        working-directory: ./src
+
+      #- name: Test
+      #  run: dotnet test --no-restore --verbosity normal
+      #  working-directory: ./src
+
+      - name: Pack
+        run: dotnet pack ./Tavenem.Blazor.MarkdownEditor.csproj --include-symbols -p:SymbolPackageFormat=snupkg -p:PackageVersion=${{ env.VERSION }} --configuration Release --no-build --nologo --output .
+        working-directory: ./src
+
+      - name: Push to NuGet
+        run: dotnet nuget push *.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: ./src
+
+      - name: Git tag
+        run: git tag v${{ env.VERSION }}
+
+      - name: Push tag
+        run: git push origin v${{ env.VERSION }}
+
+      - name: Release
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: v${{ env.VERSION }}
+          release_name: Release v${{ env.VERSION }}
+          draft: false
+          prerelease: ${{ env.PRERELEASE }}
+          body: See [changelog](docs/CHANGELOG.md)
