@@ -12,12 +12,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\docs\CHANGELOG.md = ..\docs\CHANGELOG.md
 		..\docs\CODE_OF_CONDUCT.md = ..\docs\CODE_OF_CONDUCT.md
 		..\docs\CONTRIBUTING.md = ..\docs\CONTRIBUTING.md
+		..\Directory.Build.props = ..\Directory.Build.props
 		..\LICENSE = ..\LICENSE
 		..\.github\workflows\publish.yml = ..\.github\workflows\publish.yml
 		..\README.md = ..\README.md
+		..\version.json = ..\version.json
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tavenem.Blazor.IndexedDB.Sample", "..\sample\Tavenem.Blazor.IndexedDB.Sample.csproj", "{29F661DB-82A3-4B8B-9479-49724178A222}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tavenem.Blazor.IndexedDB.Sample", "..\sample\Tavenem.Blazor.IndexedDB.Sample.csproj", "{29F661DB-82A3-4B8B-9479-49724178A222}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
