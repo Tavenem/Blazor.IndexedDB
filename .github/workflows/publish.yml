@@ -1,26 +1,31 @@
 name: publish
-env:
-  VERSION: '1.0.0'
 on:
   push:
-    branches: [ main ]
+    branches:
+      - 'releases/**'
 jobs:
   build:
     name: build, pack, publish, and release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # avoid shallow clone so nbgv can do its work.
+
+      - uses: dotnet/nbgv@v0.4.0
+        id: nbgv
       
-      - name: Setup .NET 6
+      - name: Setup .NET 7
         uses: actions/setup-dotnet@v1
         with:
           # Semantic version range syntax or exact version of a dotnet version
-          dotnet-version: '6.0.x'
+          dotnet-version: '7.0.x'
+          include-prerelease: true
       
-      - name: Use Node.js 17.x
+      - name: Use Node.js 19.x
         uses: actions/setup-node@v1
         with:
-          node-version: 17.x
+          node-version: 19.x
 
       - name: Install dependencies
         run: dotnet restore
@@ -30,40 +35,48 @@ jobs:
         run: npm ci
         working-directory: ./src/assets
 
-      - name: npm build
-        run: npm run build --if-present
-        working-directory: ./src/assets
-
       - name: Build
-        run: dotnet build --configuration Release -p:Version=${{ env.VERSION }} --no-restore --nologo
+        run: dotnet build --configuration Release -p:Version=${{ steps.nbgv.outputs.Version }} --no-restore --nologo
         working-directory: ./src
 
       #- name: Test
       #  run: dotnet test --no-restore --verbosity normal
       #  working-directory: ./src
 
+      - uses: mukunku/tag-exists-action@v1.0.0
+        id: checkTag
+        with: 
+          tag: 'v${{ steps.nbgv.outputs.Version }}'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Pack
-        run: dotnet pack ./Tavenem.Blazor.IndexedDB.csproj --include-symbols -p:SymbolPackageFormat=snupkg -p:PackageVersion=${{ env.VERSION }} --configuration Release --no-build --nologo --output .
+        if: steps.nbgv.outputs.PublicRelease && steps.checkTag.outputs.exists != 'true'
+        run: dotnet pack ./Tavenem.Blazor.IndexedDB.csproj --include-symbols -p:SymbolPackageFormat=snupkg -p:PackageVersion=${{ steps.nbgv.outputs.Version }} --configuration Release --no-build --nologo --output .
         working-directory: ./src
 
       - name: Push to NuGet
+        if: steps.nbgv.outputs.PublicRelease && steps.checkTag.outputs.exists != 'true'
         run: dotnet nuget push *.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
         working-directory: ./src
 
       - name: Git tag
-        run: git tag v${{ env.VERSION }}
+        if: steps.nbgv.outputs.PublicRelease && steps.checkTag.outputs.exists != 'true'
+        run: git tag v${{ steps.nbgv.outputs.Version }}
 
       - name: Push tag
-        run: git push origin v${{ env.VERSION }}
+        if: steps.nbgv.outputs.PublicRelease && steps.checkTag.outputs.exists != 'true'
+        run: git push origin v${{ steps.nbgv.outputs.Version }}
 
       - name: Release
+        if: steps.nbgv.outputs.PublicRelease && steps.checkTag.outputs.exists != 'true'
         id: create_release
-        uses: actions/create-release@latest
+        uses: softprops/action-gh-release@v0.1.14
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:
-          tag_name: v${{ env.VERSION }}
-          release_name: Release v${{ env.VERSION }}
+          tag_name: v${{ steps.nbgv.outputs.Version }}
+          name: Release v${{ steps.nbgv.outputs.Version }}
           draft: false
-          prerelease: ${{ env.PRERELEASE }}
+          prerelease: ${{ steps.nbgv.outputs.PrereleaseVersion != '' }}
           body: See [changelog](docs/CHANGELOG.md)

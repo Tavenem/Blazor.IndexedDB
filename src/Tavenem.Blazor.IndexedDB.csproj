@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -12,11 +12,12 @@
     <Version>1.0.0</Version>
     <Authors>Wil Stead</Authors>
     <Description>IndexedDB wrapper for Blazor.</Description>
-    <Copyright>Copyright © 2021 Wil Stead</Copyright>
+    <Copyright>Copyright © Wil Stead</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/Tavenem/Blazor.IndexedDB</PackageProjectUrl>
     <PackageIcon>tavenem_128.png</PackageIcon>
-    <PackageTags>blazor indexeddb</PackageTags>
+    <PackageTags>Blazor IndexedDB</PackageTags>
     <RepositoryUrl>https://github.com/Tavenem/Blazor.IndexedDB.git</RepositoryUrl>
     <RepositoryBranch>main</RepositoryBranch>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -28,32 +29,70 @@
     <Content Update="assets\**" Pack="false">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
-    <Content Include="assets\tavenem-indexeddb.ts" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
     <None Include="tavenem_128.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
-    <ClientAssetsBuildOutputParameter>-d</ClientAssetsBuildOutputParameter>
-  </PropertyGroup>
-
   <ItemGroup>
-    <ClientAssetsInputs Remove="assets\package.json" />
-    <ClientAssetsInputs Remove="assets\tsconfig.json" />
-    <ClientAssetsInputs Remove="assets\rollup.config.js" />
-    <ClientAssetsInputs Remove="assets\tavenem-indexeddb.ts" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.ClientAssets" Version="0.1.0-alpha.21528.2">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="6.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="7.0.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+
+  <PropertyGroup>
+    <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ClientAssetsDirectory>assets\</ClientAssetsDirectory>
+    <ClientAssetsRestoreInputs>$(MSBuildProjectFile);$(ClientAssetsDirectory)package-lock.json;$(ClientAssetsDirectory)package.json</ClientAssetsRestoreInputs>
+    <ClientAssetsRestoreOutputs>$(ClientAssetsDirectory)node_modules\.package-lock.json</ClientAssetsRestoreOutputs>
+
+    <!-- Run restore only once for multi targeting builds -->
+    <ClientAssetsRestoreBeforeTargets Condition="'$(TargetFramework)' == 'net7.0'">DispatchToInnerBuilds</ClientAssetsRestoreBeforeTargets>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Update="$(ClientAssetsDirectory)**" Pack="false">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <ClientAssetsInputs Include="$(ClientAssetsDirectory)rollup.config.js;$(ClientAssetsDirectory)scripts\**\*.ts" Exclude="$(DefaultItemExcludes);$(ClientAssetsDirectory)scripts\**\*.d.ts;$(ClientAssetsDirectory)scripts\**\_*.ts" />
+  </ItemGroup>
+
+  <Target Name="ClientAssetsRestore" BeforeTargets="$(ClientAssetsRestoreBeforeTargets)" Inputs="$(ClientAssetsRestoreInputs)" Outputs="$(ClientAssetsRestoreOutputs)">
+    <Message Importance="high" Text="Running npm install..." />
+    <Exec Command="npm install" WorkingDirectory="$(ClientAssetsDirectory)" />
+  </Target>
+
+  <Target Name="ClientAssetsBuild" DependsOnTargets="ClientAssetsRestore" BeforeTargets="AssignTargetPaths" Inputs="@(ClientAssetsInputs)" Outputs="$(IntermediateOutputPath)clientassetsbuild.complete.txt">
+    <PropertyGroup>
+      <_ClientAssetsOutputFullPath>$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)clientassets'))/</_ClientAssetsOutputFullPath>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(_ClientAssetsOutputFullPath)" />
+
+    <Message Importance="high" Text="Running npm run build:$(Configuration)..." />
+    <Exec Command="npm run build:$(Configuration) -- -d $(_ClientAssetsOutputFullPath)" WorkingDirectory="$(ClientAssetsDirectory)" />
+
+    <ItemGroup>
+      <_ClientAssetsBuildOutput Include="$(IntermediateOutputPath)clientassets\**"></_ClientAssetsBuildOutput>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(IntermediateOutputPath)clientassetsbuild.complete.txt" Lines="@(_ClientAssetsBuildOutput)" />
+  </Target>
+
+  <Target Name="DefineClientAssets" AfterTargets="ClientAssetsBuild" DependsOnTargets="ResolveStaticWebAssetsConfiguration">
+    <ItemGroup>
+      <FileWrites Include="@(_ClientAssetsBuildOutput)" />
+      <FileWrites Include="$(IntermediateOutputPath)clientassetsbuild.complete.txt" />
+    </ItemGroup>
+
+    <DefineStaticWebAssets CandidateAssets="@(_ClientAssetsBuildOutput)" SourceId="$(PackageId)" SourceType="Computed" ContentRoot="$(_ClientAssetsOutputFullPath)" BasePath="$(StaticWebAssetBasePath)">
+      <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
+    </DefineStaticWebAssets>
+  </Target>
 
 </Project>
