@@ -137,6 +137,21 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
     /// Retrieves a batch of items from an IndexedDB object store.
     /// </summary>
     /// <typeparam name="TValue">The type of value being retrieved.</typeparam>
+    /// <param name="reset">
+    /// <para>
+    /// Whether to restart iteration from the beginning.
+    /// </para>
+    /// <para>
+    /// When <see langword="false"/>, successive calls to this method will fetch batches of items
+    /// from the store until no more items remain to be enumerated. At that point, all following
+    /// calls will return an empty array, until <see langword="true"/> is passed for this parameter.
+    /// </para>
+    /// </param>
+    /// <remarks>
+    /// This method can be used directly, but it may be more intuitive to call <see
+    /// cref="Query{T}"/> and one of the <see cref="IDataStoreQueryable{T}"/> methods, such as <see
+    /// cref="IDataStoreQueryable{T}.AsAsyncEnumerable"/>, when enumerating items.
+    /// </remarks>
     public async Task<TValue[]> GetBatchAsync<TValue>(bool reset = false)
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);

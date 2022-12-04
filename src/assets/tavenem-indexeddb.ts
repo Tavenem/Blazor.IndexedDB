@@ -77,7 +77,7 @@ export async function deleteValue(databaseInfo: DatabaseInfo, key: IDBValidKey) 
         return false;
     }
     try {
-        return await db.delete(databaseInfo.storeName ?? databaseInfo.databaseName, key);
+        await db.delete(databaseInfo.storeName ?? databaseInfo.databaseName, key);
         return true;
     } catch (e) {
         console.error(e);

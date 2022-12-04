@@ -6,7 +6,17 @@ public partial class Index
 {
     private long Count { get; set; }
 
-    [Inject] private IndexedDbService<string>? IndexedDbService { get; set; }
+    private string? Filter { get; set; }
+
+    private int FilterCount { get; set; }
+
+    private bool FilterMatched { get; set; }
+
+    private List<Item> FilteredItems { get; set; } = new();
+
+    [Inject] private IndexedDbService IndexedDbService { get; set; } = default!;
+
+    private bool IsLoading { get; set; }
 
     private List<Item> Items { get; set; } = new();
 
@@ -28,115 +38,105 @@ public partial class Index
 
     private async Task OnAddAsync()
     {
-        if (IndexedDbService is null)
-        {
-            Console.WriteLine("null service");
-            return;
-        }
         if (string.IsNullOrWhiteSpace(Value))
         {
             return;
         }
 
-        var item = new Item
-        {
-            Id = Guid.NewGuid().ToString(),
-            Value = Value
-        };
+        var item = new Item { Value = Value };
         Value = null;
 
-        await IndexedDbService
-            .AddValueAsync(item)
-            .ConfigureAwait(false);
-
-        Items.Add(item);
-        Count++;
+        if (await IndexedDbService.StoreItemAsync(item))
+        {
+            Items.Add(item);
+            if (Filter is null
+                || item.Value.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            {
+                FilteredItems.Add(item);
+                FilteredItems.Sort((x, y) => x.Value?.CompareTo(y.Value) ?? (y.Value is null ? 0 : -1));
+            }
+            Count++;
+        }
     }
 
     private async Task OnClearAsync()
     {
-        if (IndexedDbService is null)
-        {
-            Console.WriteLine("null service");
-            return;
-        }
-
-        await IndexedDbService
-            .ClearAsync()
-            .ConfigureAwait(false);
-
+        await IndexedDbService.ClearAsync();
         Items.Clear();
+        FilteredItems.Clear();
         Count = 0;
+        FilterMatched = false;
+        FilterCount = 0;
     }
 
     private async Task OnDeleteAsync(Item item)
     {
-        if (IndexedDbService is null)
+        if (await IndexedDbService.RemoveItemAsync<Item>(item.Id))
         {
-            Console.WriteLine("null service");
-            return;
+            Items.Remove(item);
+            FilteredItems.Remove(item);
+            Count--;
         }
-
-        await IndexedDbService
-            .DeleteKeyAsync(item.Id)
-            .ConfigureAwait(false);
-
-        Items.Remove(item);
-        Count--;
     }
 
     private async Task OnDeleteDatabaseAsync()
     {
-        if (IndexedDbService is null)
+        IsLoading = true;
+        StateHasChanged();
+
+        await IndexedDbService.DeleteDatabaseAsync();
+        Count = 0;
+        Items.Clear();
+        FilteredItems.Clear();
+        FilterMatched = false;
+        FilterCount = 0;
+
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task OnFilterAsync()
+    {
+        if (string.IsNullOrEmpty(Filter))
         {
-            Console.WriteLine("null service");
+            FilteredItems = Items;
+            FilterMatched = false;
+            FilterCount = 0;
             return;
         }
 
-        await IndexedDbService
-            .DeleteDatabaseAsync()
-            .ConfigureAwait(false);
+        var query = IndexedDbService
+            .Query<Item>()
+            .Where(x => x.Value != null && x.Value.Contains(Filter, StringComparison.OrdinalIgnoreCase));
 
-        Count = 0;
-        Items.Clear();
+        // deliberately using inefficient logic, in order to test more paths
+        FilterMatched = await query.AnyAsync();
+
+        FilterCount = await query.CountAsync();
+
+        FilteredItems = (await query
+            .OrderBy(x => x.Value)
+            .ToListAsync())
+            .ToList();
     }
 
     private async Task OnRefreshAsync()
     {
-        if (IndexedDbService is null)
-        {
-            Console.WriteLine("null service");
-            return;
-        }
-
-        Count = await IndexedDbService
-            .CountAsync()
-            .ConfigureAwait(false);
-
-        Items = (await IndexedDbService
-            .GetAllAsync<Item>()
-            .ConfigureAwait(false))?
-            .ToList()
-            ?? new();
+        Count = await IndexedDbService.CountAsync();
+        Items = (await IndexedDbService.GetAllAsync<Item>()).ToList();
+        FilteredItems = Items.ToList();
+        FilteredItems.Sort((x, y) => x.Value?.CompareTo(y.Value) ?? (y.Value is null ? 0 : -1));
     }
 
     private async Task OnRefreshItemAsync(Item item)
     {
-        if (IndexedDbService is null)
-        {
-            Console.WriteLine("null service");
-            return;
-        }
-
         var index = Items.IndexOf(item);
         if (index == -1)
         {
             return;
         }
 
-        var newItem = await IndexedDbService
-            .GetValueAsync<Item>(item.Id)
-            .ConfigureAwait(false);
+        var newItem = await IndexedDbService.GetItemAsync<Item>(item.Id);
         if (newItem is not null)
         {
             Items.RemoveAt(index);
@@ -146,17 +146,17 @@ public partial class Index
 
     private async Task OnUpdateAsync(Item item)
     {
-        if (IndexedDbService is null)
-        {
-            Console.WriteLine("null service");
-            return;
-        }
-
         item.Value = item.NewValue;
         item.IsUpdating = false;
 
-        await IndexedDbService
-            .PutValueAsync(item)
-            .ConfigureAwait(false);
+        if (!await IndexedDbService.StoreItemAsync(item))
+        {
+            var oldItem = await IndexedDbService.GetItemAsync<Item>(item.Id);
+            if (oldItem is not null)
+            {
+                item.Value = oldItem.Value;
+                item.NewValue = oldItem.Value;
+            }
+        }
     }
 }

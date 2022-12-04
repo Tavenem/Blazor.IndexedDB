@@ -6,23 +6,46 @@ namespace Tavenem.Blazor.IndexedDB;
 /// <summary>
 /// Provides LINQ operations on an <see cref="IndexedDbService"/>.
 /// </summary>
-/// <typeparam name="T"></typeparam>
-public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
+public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 {
-    private readonly Expression<Func<T, bool>>? _conditionalExpression;
-    private readonly IndexedDbService _service;
-    private readonly int _skip = 0;
-    private readonly int _take = -1;
+    private protected readonly Expression<Func<T, bool>>? _conditionalExpression;
+    private readonly IndexedDbService? _service;
+    private protected readonly int _skip = 0;
+    private protected readonly int _take = -1;
 
     /// <summary>
     /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
     /// </summary>
-    public IndexedDbQueryable(IndexedDbService service) => _service = service;
+    public IndexedDbQueryable(IndexedDbService? service) => _service = service;
 
     /// <summary>
     /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
     /// </summary>
-    private IndexedDbQueryable(IndexedDbService service, Expression<Func<T, bool>>? expression, int skip, int take)
+    protected IndexedDbQueryable() { }
+
+    /// <summary>
+    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
+    /// </summary>
+    protected IndexedDbQueryable(int skip, int take)
+    {
+        _skip = skip;
+        _take = take;
+    }
+
+    /// <summary>
+    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
+    /// </summary>
+    protected IndexedDbQueryable(Expression<Func<T, bool>>? expression, int skip, int take)
+    {
+        _conditionalExpression = expression;
+        _skip = skip;
+        _take = take;
+    }
+
+    /// <summary>
+    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
+    /// </summary>
+    private IndexedDbQueryable(IndexedDbService? service, Expression<Func<T, bool>>? expression, int skip, int take)
     {
         _conditionalExpression = expression;
         _service = service;
@@ -38,7 +61,7 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     /// langword="false" />.
     /// </returns>
     /// <remarks>
-    /// This method blocks on <see cref="AnyAsync"/>. Always use that method instead to avoid
+    /// This method blocks on <see cref="AnyAsync()"/>. Always use that method instead to avoid
     /// issues.
     /// </remarks>
     public bool Any() => AnyAsync().GetAwaiter().GetResult();
@@ -61,7 +84,7 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     /// <inheritdoc/>
     public async Task<bool> AnyAsync()
     {
-        await foreach (var item in IterateSourceAsync())
+        await foreach (var _ in IterateSourceAsync())
         {
             return true;
         }
@@ -141,7 +164,7 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     /// sequence contains no elements.
     /// </returns>
     /// <remarks>
-    /// This method blocks on <see cref="FirstOrDefaultAsync"/>. Always use that method instead to
+    /// This method blocks on <see cref="FirstOrDefaultAsync()"/>. Always use that method instead to
     /// avoid issues.
     /// </remarks>
     public T? FirstOrDefault() => FirstOrDefaultAsync().GetAwaiter().GetResult();
@@ -289,13 +312,17 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> OfType<TResult>() => throw new NotImplementedException();
+    public IDataStoreQueryable<TResult> OfType<TResult>()
+        => Where(x => x is TResult)
+        .Select(x => (TResult)(object)x!);
 
     /// <inheritdoc/>
-    public IOrderedDataStoreQueryable<T> OrderBy<TKey>(Expression<Func<T, TKey>> keySelector, bool descending = false) => throw new NotImplementedException();
+    public IOrderedDataStoreQueryable<T> OrderBy<TKey>(Expression<Func<T, TKey>> keySelector, bool descending = false)
+        => new OrderedIndexedDbQueryable<T, TKey>(this, keySelector, descending);
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> Select<TResult>(Expression<Func<T, TResult>> selector) => throw new NotImplementedException();
+    public IDataStoreQueryable<TResult> Select<TResult>(Expression<Func<T, TResult>> selector)
+        => new SelectedIndexedDbQueryable<TResult, T>(this, selector);
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TResult> SelectAsync<TResult>(Func<T, ValueTask<TResult>> selector)
@@ -307,10 +334,16 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> SelectMany<TResult>(Expression<Func<T, IEnumerable<TResult>>> selector) => throw new NotImplementedException();
+    public IDataStoreQueryable<TResult> SelectMany<TResult>(Expression<Func<T, IEnumerable<TResult>>> selector)
+        => new SelectedIndexedDbQueryable<TResult, T>(this, selector);
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> SelectMany<TCollection, TResult>(Expression<Func<T, IEnumerable<TCollection>>> collectionSelector, Expression<Func<T, TCollection, TResult>> resultSelector) => throw new NotImplementedException();
+    public IDataStoreQueryable<TResult> SelectMany<TCollection, TResult>(
+        Expression<Func<T, IEnumerable<TCollection>>> collectionSelector,
+        Expression<Func<T, TCollection, TResult>> resultSelector) => new ManySelectedIndexedDbQueryable<TResult, TCollection, T>(
+        this,
+        collectionSelector,
+        resultSelector);
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TResult> SelectManyAsync<TResult>(Func<T, IAsyncEnumerable<TResult>> selector)
@@ -365,14 +398,14 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<T> Skip(int count) => new IndexedDbQueryable<T>(
+    public virtual IDataStoreQueryable<T> Skip(int count) => new IndexedDbQueryable<T>(
         _service,
         _conditionalExpression,
         count,
         _take);
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<T> Take(int count) => new IndexedDbQueryable<T>(
+    public virtual IDataStoreQueryable<T> Take(int count) => new IndexedDbQueryable<T>(
         _service,
         _conditionalExpression,
         _skip,
@@ -401,7 +434,7 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<T> Where(Expression<Func<T, bool>> predicate) => new IndexedDbQueryable<T>(
+    public virtual IDataStoreQueryable<T> Where(Expression<Func<T, bool>> predicate) => new IndexedDbQueryable<T>(
         _service,
         _conditionalExpression is null
             ? predicate
@@ -421,8 +454,13 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         }
     }
 
-    private Expression<Func<T, bool>> CombineCondition(Expression<Func<T, bool>> expression)
+    private protected Expression<Func<T, bool>> CombineCondition(Expression<Func<T, bool>> expression)
     {
+        if (_conditionalExpression is null)
+        {
+            return expression;
+        }
+
         var newExpression = new ReplaceExpressionVisitor(
             expression.Parameters[0],
             _conditionalExpression.Parameters[0])
@@ -433,15 +471,20 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         }
         return Expression.Lambda<Func<T, bool>>(Expression.AndAlso(
             _conditionalExpression,
-            newExpression,
-            _conditionalExpression.Parameters[0]));
+            newExpression),
+            _conditionalExpression.Parameters[0]);
     }
 
-    private IEnumerable<T> IterateSource()
+    internal virtual IEnumerable<T> IterateSource()
     {
+        if (_service is null)
+        {
+            yield break;
+        }
+        var condition = _conditionalExpression?.Compile();
         var reset = true;
         var count = 0;
-        do
+        while (true)
         {
             var items = _service
                 .GetBatchAsync<T>(reset)
@@ -453,31 +496,40 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
             }
             for (var i = 0; i < items.Length; i++)
             {
+                if (condition?.Invoke(items[i]) == false)
+                {
+                    continue;
+                }
                 count++;
                 if (count <= _skip)
                 {
                     continue;
                 }
                 yield return items[i];
-                if (count >= _take)
+                if (_take >= 0 && count >= _take)
                 {
                     break;
                 }
             }
-            if (count >= _take
+            if ((_take >= 0 && count >= _take)
                 || items.Length < 20)
             {
                 break;
             }
             reset = false;
-        } while (true);
+        }
     }
 
-    private async IAsyncEnumerable<T> IterateSourceAsync()
+    internal virtual async IAsyncEnumerable<T> IterateSourceAsync()
     {
+        if (_service is null)
+        {
+            yield break;
+        }
+        var condition = _conditionalExpression?.Compile();
         var reset = true;
         var count = 0;
-        do
+        while (true)
         {
             var items = await _service
                 .GetBatchAsync<T>(reset)
@@ -488,23 +540,27 @@ public sealed class IndexedDbQueryable<T> : IDataStoreQueryable<T>
             }
             for (var i = 0; i < items.Length; i++)
             {
+                if (condition?.Invoke(items[i]) == false)
+                {
+                    continue;
+                }
                 count++;
                 if (count <= _skip)
                 {
                     continue;
                 }
                 yield return items[i];
-                if (count >= _take)
+                if (_take >= 0 && count >= _take)
                 {
                     break;
                 }
             }
-            if (count >= _take
+            if ((_take >= 0 && count >= _take)
                 || items.Length < 20)
             {
                 break;
             }
             reset = false;
-        } while (true);
+        }
     }
 }
