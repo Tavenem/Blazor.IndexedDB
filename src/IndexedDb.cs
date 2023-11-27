@@ -3,12 +3,23 @@
 /// <summary>
 /// Information about an IndexedDB database.
 /// </summary>
-public class IndexedDb
+/// <param name="databaseName">The name of the database.</param>
+/// <param name="version">The version number of the current schema.</param>
+/// <param name="storeName">
+/// <para>
+/// The name of the object store.
+/// </para>
+/// <para>
+/// If left <see langword="null"/> or empty, the <see cref="DatabaseName"/>
+/// will be reused.
+/// </para>
+/// </param>
+public class IndexedDb(string databaseName, int? version = null, string? storeName = null)
 {
     /// <summary>
     /// The name of the database.
     /// </summary>
-    public string DatabaseName { get; set; }
+    public string DatabaseName { get; set; } = databaseName;
 
     /// <summary>
     /// <para>
@@ -19,7 +30,7 @@ public class IndexedDb
     /// will be reused.
     /// </para>
     /// </summary>
-    public string? StoreName { get; set; }
+    public string? StoreName { get; set; } = storeName;
 
     /// <summary>
     /// The version number of the current schema.
@@ -43,26 +54,5 @@ public class IndexedDb
     /// also allowed, but may result in errors if the schema has changed.
     /// </para>
     /// </remarks>
-    public int? Version { get; set; }
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="IndexedDb"/>.
-    /// </summary>
-    /// <param name="databaseName">The name of the database.</param>
-    /// <param name="version">The version number of the current schema.</param>
-    /// <param name="storeName">
-    /// <para>
-    /// The name of the object store.
-    /// </para>
-    /// <para>
-    /// If left <see langword="null"/> or empty, the <see cref="DatabaseName"/>
-    /// will be reused.
-    /// </para>
-    /// </param>
-    public IndexedDb(string databaseName, int? version = null, string? storeName = null)
-    {
-        DatabaseName = databaseName;
-        StoreName = storeName;
-        Version = version;
-    }
+    public int? Version { get; set; } = version;
 }

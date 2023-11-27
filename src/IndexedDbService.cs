@@ -1,4 +1,5 @@
 using Microsoft.JSInterop;
+using System.Text.Json;
 using Tavenem.DataStorage;
 
 namespace Tavenem.Blazor.IndexedDB;
@@ -6,10 +7,17 @@ namespace Tavenem.Blazor.IndexedDB;
 /// <summary>
 /// Provides access to the IndexedDB API for a specific database.
 /// </summary>
-public class IndexedDbService : IDataStore, IAsyncDisposable
+/// <param name="jsRuntime">An <see cref="IJSRuntime"/> instance.</param>
+/// <param name="database">An <see cref="IndexedDb"/> instance.</param>
+/// <param name="jsonSerializerOptions">A configured <see cref="JsonSerializerOptions"/> instance. Optional.</param>
+public class IndexedDbService(
+    IJSRuntime jsRuntime,
+    IndexedDb database,
+    JsonSerializerOptions? jsonSerializerOptions = null) : IDataStore, IAsyncDisposable
 {
-    private readonly IndexedDb _database;
-    private readonly Lazy<Task<IJSObjectReference>> _moduleTask;
+    private readonly Lazy<Task<IJSObjectReference>> _moduleTask
+        = new(() => jsRuntime.InvokeAsync<IJSObjectReference>(
+            "import", "./_content/Tavenem.Blazor.IndexedDB/tavenem-indexeddb.js").AsTask());
 
     private bool _disposed;
 
@@ -28,25 +36,13 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
     public bool SupportsCaching => false;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="IndexedDbService"/>
-    /// </summary>
-    /// <param name="jsRuntime">An <see cref="IJSRuntime"/> instance.</param>
-    /// <param name="database">An <see cref="IndexedDb"/> instance.</param>
-    public IndexedDbService(IJSRuntime jsRuntime, IndexedDb database)
-    {
-        _database = database;
-        _moduleTask = new(() => jsRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/Tavenem.Blazor.IndexedDB/tavenem-indexeddb.js").AsTask());
-    }
-
-    /// <summary>
     /// Clears the database.
     /// </summary>
     public async Task ClearAsync()
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
         await module
-            .InvokeVoidAsync("clear", _database)
+            .InvokeVoidAsync("clear", database)
             .ConfigureAwait(false);
     }
 
@@ -57,7 +53,7 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
         return await module
-            .InvokeAsync<long>("count", _database)
+            .InvokeAsync<long>("count", database)
             .ConfigureAwait(false);
     }
 
@@ -99,7 +95,7 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
         await module
-            .InvokeVoidAsync("deleteDatabase", _database.DatabaseName)
+            .InvokeVoidAsync("deleteDatabase", database.DatabaseName)
             .ConfigureAwait(false);
     }
 
@@ -125,12 +121,40 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
     /// Retrieves all the items in an IndexedDB object store.
     /// </summary>
     /// <typeparam name="TValue">The type of value being retrieved.</typeparam>
-    public async Task<TValue[]> GetAllAsync<TValue>()
+    /// <remarks>
+    /// Note: the IndexedDB object store cannot filter items by type. Using this method when there
+    /// are objects of different types in your data store will result in an exception when
+    /// attempting to deserialize items of types other than <typeparamref name="TValue"/>. This
+    /// method should only be used when you only employ this database to store objects of a uniform
+    /// type (or which inherit from a common type).
+    /// </remarks>
+    public async IAsyncEnumerable<TValue> GetAllAsync<TValue>()
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
-        return await module
-            .InvokeAsync<TValue[]>("getAll", _database)
+
+        if (jsonSerializerOptions is null)
+        {
+            var items = await module
+                .InvokeAsync<TValue[]>("getAll", database)
+                .ConfigureAwait(false);
+            foreach (var item in items)
+            {
+                yield return item;
+            }
+            yield break;
+        }
+
+        var strings = await module
+            .InvokeAsync<string[]>("getAllStrings", database)
             .ConfigureAwait(false);
+        foreach (var item in strings)
+        {
+            var deserialized = JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
+            if (deserialized is TValue value)
+            {
+                yield return value;
+            }
+        }
     }
 
     /// <summary>
@@ -148,16 +172,47 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
     /// </para>
     /// </param>
     /// <remarks>
+    /// <para>
     /// This method can be used directly, but it may be more intuitive to call <see
-    /// cref="Query{T}"/> and one of the <see cref="IDataStoreQueryable{T}"/> methods, such as <see
-    /// cref="IDataStoreQueryable{T}.AsAsyncEnumerable"/>, when enumerating items.
+    /// cref="Query{T}"/> and one of the <see cref="IDataStoreQueryable{T}"/>
+    /// methods, such as <see cref="IDataStoreQueryable{T}.AsAsyncEnumerable"/>, when enumerating
+    /// items.
+    /// </para>
+    /// <para>
+    /// Note: the IndexedDB object store cannot filter items by type. Using this method when there
+    /// are objects of different types in your data store will result in an exception when
+    /// attempting to deserialize items of types other than <typeparamref name="TValue"/>. This
+    /// method should only be used when you only employ this database to store objects of a uniform
+    /// type (or which inherit from a common type).
+    /// </para>
     /// </remarks>
-    public async Task<TValue[]> GetBatchAsync<TValue>(bool reset = false)
+    public async IAsyncEnumerable<TValue> GetBatchAsync<TValue>(bool reset = false)
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
-        return await module
-            .InvokeAsync<TValue[]>("getBatch", _database, reset)
+
+        if (jsonSerializerOptions is null)
+        {
+            var items = await module
+                .InvokeAsync<TValue[]>("getBatch", database, reset)
+                .ConfigureAwait(false);
+            foreach (var item in items)
+            {
+                yield return item;
+            }
+            yield break;
+        }
+
+        var strings = await module
+            .InvokeAsync<string[]>("getBatchStrings", database, reset)
             .ConfigureAwait(false);
+        foreach (var item in strings)
+        {
+            var deserialized = JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
+            if (deserialized is TValue value)
+            {
+                yield return value;
+            }
+        }
     }
 
     /// <summary>
@@ -198,14 +253,24 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
         }
 
         var module = await _moduleTask.Value.ConfigureAwait(false);
-        return await module
-            .InvokeAsync<T>("getValue", _database, id)
-            .ConfigureAwait(false);
+
+        if (jsonSerializerOptions is null)
+        {
+            return await module
+                .InvokeAsync<T>("getValue", database, id)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            var item = await module
+                .InvokeAsync<string>("getValueString", database, id)
+                .ConfigureAwait(false);
+            return JsonSerializer.Deserialize<T>(item, jsonSerializerOptions);
+        }
     }
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<T> Query<T>() where T : class, IIdItem
-        => new IndexedDbQueryable<T>(this);
+    public IDataStoreQueryable<T> Query<T>() where T : class, IIdItem => new IndexedDbQueryable<T>(this);
 
     /// <summary>
     /// Removes the stored item with the given id.
@@ -265,7 +330,7 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
 
         var module = await _moduleTask.Value.ConfigureAwait(false);
         return await module
-            .InvokeAsync<bool>("deleteValue", _database, id)
+            .InvokeAsync<bool>("deleteValue", database, id)
             .ConfigureAwait(false);
     }
 
@@ -321,9 +386,23 @@ public class IndexedDbService : IDataStore, IAsyncDisposable
             return true;
         }
 
-        var module = await _moduleTask.Value.ConfigureAwait(false);
-        return await module
-            .InvokeAsync<bool>("putValue", _database, item)
-            .ConfigureAwait(false);
+        if (jsonSerializerOptions is null)
+        {
+            var module = await _moduleTask.Value.ConfigureAwait(false);
+
+            // Explicitly serialize before invoking because T is passed as a plain object, and
+            // implements IIdItem, which causes the default serialization behavior to serialize only
+            // the interface properties.
+            return await module
+                .InvokeAsync<bool>("putValue", database, JsonSerializer.Serialize(item))
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            var module = await _moduleTask.Value.ConfigureAwait(false);
+            return await module
+                .InvokeAsync<bool>("putValue", database, JsonSerializer.Serialize<IIdItem>(item, jsonSerializerOptions))
+                .ConfigureAwait(false);
+        }
     }
 }

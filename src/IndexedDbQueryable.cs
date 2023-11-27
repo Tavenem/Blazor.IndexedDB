@@ -45,7 +45,11 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     /// <summary>
     /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
     /// </summary>
-    private IndexedDbQueryable(IndexedDbService? service, Expression<Func<T, bool>>? expression, int skip, int take)
+    private IndexedDbQueryable(
+        IndexedDbService? service,
+        Expression<Func<T, bool>>? expression,
+        int skip,
+        int take)
     {
         _conditionalExpression = expression;
         _service = service;
@@ -464,11 +468,8 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         var newExpression = new ReplaceExpressionVisitor(
             expression.Parameters[0],
             _conditionalExpression.Parameters[0])
-            .Visit(expression.Body);
-        if (newExpression is null)
-        {
-            throw new InvalidOperationException("Expression could not be constructed successfully.");
-        }
+            .Visit(expression.Body)
+            ?? throw new InvalidOperationException("Expression could not be constructed successfully.");
         return Expression.Lambda<Func<T, bool>>(Expression.AndAlso(
             _conditionalExpression,
             newExpression),
@@ -486,17 +487,14 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         var count = 0;
         while (true)
         {
-            var items = _service
+            var batchCount = 0;
+            var enumerator = _service
                 .GetBatchAsync<T>(reset)
-                .GetAwaiter()
-                .GetResult();
-            if (items.Length == 0)
+                .GetAsyncEnumerator();
+            while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
             {
-                break;
-            }
-            for (var i = 0; i < items.Length; i++)
-            {
-                if (condition?.Invoke(items[i]) == false)
+                batchCount++;
+                if (condition?.Invoke(enumerator.Current) == false)
                 {
                     continue;
                 }
@@ -505,14 +503,18 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
                 {
                     continue;
                 }
-                yield return items[i];
+                yield return enumerator.Current;
                 if (_take >= 0 && count >= _take)
                 {
                     break;
                 }
             }
+            if (batchCount == 0)
+            {
+                break;
+            }
             if ((_take >= 0 && count >= _take)
-                || items.Length < 20)
+                || batchCount < 20)
             {
                 break;
             }
@@ -531,16 +533,12 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         var count = 0;
         while (true)
         {
-            var items = await _service
-                .GetBatchAsync<T>(reset)
-                .ConfigureAwait(false);
-            if (items.Length == 0)
+            var batchCount = 0;
+            await foreach (var item in _service
+                .GetBatchAsync<T>(reset))
             {
-                break;
-            }
-            for (var i = 0; i < items.Length; i++)
-            {
-                if (condition?.Invoke(items[i]) == false)
+                batchCount++;
+                if (condition?.Invoke(item) == false)
                 {
                     continue;
                 }
@@ -549,14 +547,18 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
                 {
                     continue;
                 }
-                yield return items[i];
+                yield return item;
                 if (_take >= 0 && count >= _take)
                 {
                     break;
                 }
             }
+            if (batchCount == 0)
+            {
+                break;
+            }
             if ((_take >= 0 && count >= _take)
-                || items.Length < 20)
+                || batchCount < 20)
             {
                 break;
             }

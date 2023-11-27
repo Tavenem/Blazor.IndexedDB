@@ -31,19 +31,22 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
 
 1. Call `AddIndexedDb(db)` with an `IndexedDb` instance, or `AddIndexedDb(provider => GetMyDatabase())` with a function that supplies one through dependency injection.
 
+   Optional: you may also supply a customized instance of `JsonSerializerOptions` to control the serialization of your data items. If you do not choose to do so, the default Blazor options will be used, which are sufficient for most POCO objects, and optimizes the interop with the JavaScript layer.
+
 1. Inject the `IndexedDbService` instance in a component.
 
 1. Call the `StoreItemAsync<T>`, `GetItemAsync<T>`, and `RemoveItemAsync<T>` methods to work with strongly-typed data items.
 
     ```c#
-    class Item : IdItem
+    class Item : IIdItem
     {
-        public int Id { get; set; }
+        public string Id { get; set; }
         public string? Value { get; set; }
     }
     
     var item = new Item
     {
+        Id = "1",
         Value = "Hello, World!",
     };
     
@@ -96,11 +99,9 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
 
 ## Roadmap
 
-Tavenem.IndexedDb v2.0 is currently in a prerelease state. Development is ongoing, and breaking changes are possible before the production release.
+New versions of Tavenem.IndexedDb should be expected whenever the API surface of the Tavenem [DataStore library](https://github.com/Tavenem/DataStore) receives an update.
 
-No release date is currently set for v2.0 of Tavenem.IndexedDb. The project is currently in a "wait and see" phase while Tavenem.DataStore is in prerelease. When that project has a stable release, a production release of Tavenem.IndexedDb v2.0 will follow.
-
-In the meantime, v1 of Tavenem.IndexedDb is stable and will not undergo any breaking changes. It has a significantly different API. See the v1 branch's README for details.
+Other updates to resolve bugs or add new features may occur at any time.
 
 ## Contributing
 

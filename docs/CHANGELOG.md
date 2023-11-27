@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0-preview1
+## 2.0
 ### Changed
 - `IndexedDb` no longer has a typed key. Only string keys are used.
 - `IndexedDbService` no longer has a typed key. Only string keys are used.

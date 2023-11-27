@@ -12,13 +12,13 @@ public partial class Index
 
     private bool FilterMatched { get; set; }
 
-    private List<Item> FilteredItems { get; set; } = new();
+    private List<Item> FilteredItems { get; set; } = [];
 
     [Inject] private IndexedDbService IndexedDbService { get; set; } = default!;
 
     private bool IsLoading { get; set; }
 
-    private List<Item> Items { get; set; } = new();
+    private List<Item> Items { get; set; } = [];
 
     private string? Value { get; set; }
 
@@ -114,17 +114,23 @@ public partial class Index
 
         FilterCount = await query.CountAsync();
 
-        FilteredItems = (await query
-            .OrderBy(x => x.Value)
-            .ToListAsync())
-            .ToList();
+        FilteredItems =
+        [
+            .. (await query
+                .OrderBy(x => x.Value)
+                .ToListAsync())
+        ];
     }
 
     private async Task OnRefreshAsync()
     {
         Count = await IndexedDbService.CountAsync();
-        Items = (await IndexedDbService.GetAllAsync<Item>()).ToList();
-        FilteredItems = Items.ToList();
+        Items = [];
+        await foreach (var item in IndexedDbService.GetAllAsync<Item>())
+        {
+            Items.Add(item);
+        }
+        FilteredItems = [.. Items];
         FilteredItems.Sort((x, y) => x.Value?.CompareTo(y.Value) ?? (y.Value is null ? 0 : -1));
     }
 

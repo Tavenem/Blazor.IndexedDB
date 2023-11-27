@@ -98,6 +98,20 @@ export async function getAll(databaseInfo: DatabaseInfo) {
     }
 }
 
+export async function getAllStrings(databaseInfo: DatabaseInfo) {
+    const db = await openDatabase(databaseInfo);
+    if (!db) {
+        return [];
+    }
+    try {
+        var items = await db.getAll(databaseInfo.storeName ?? databaseInfo.databaseName);
+        return items.map(v => JSON.stringify(v));
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
+}
+
 export async function getBatch(databaseInfo: DatabaseInfo, reset: boolean) {
     const db = await openDatabase(databaseInfo);
     if (!db) {
@@ -134,6 +148,42 @@ export async function getBatch(databaseInfo: DatabaseInfo, reset: boolean) {
     return items;
 }
 
+export async function getBatchStrings(databaseInfo: DatabaseInfo, reset: boolean) {
+    const db = await openDatabase(databaseInfo);
+    if (!db) {
+        return [];
+    }
+    const cursorKey = databaseInfo.databaseName + '.' + databaseInfo.storeName;
+    if (reset) {
+        delete cursors[cursorKey];
+    }
+    let cursorInfo = cursors[cursorKey];
+    if (!cursorInfo || cursorInfo.db.version != databaseInfo.version) {
+        try {
+            const cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
+            cursorInfo = {
+                db: databaseInfo,
+                cursor,
+            };
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    if (!cursorInfo) {
+        return [];
+    }
+    const items = [];
+    try {
+        while (cursorInfo.cursor && items.length < 20) {
+            items.push(JSON.stringify(cursorInfo.cursor.value));
+            cursorInfo.cursor = await cursorInfo.cursor.continue();
+        }
+    } catch (e) {
+        console.error(e);
+    }
+    return items;
+}
+
 export async function getValue(databaseInfo: DatabaseInfo, key: IDBValidKey) {
     const db = await openDatabase(databaseInfo);
     if (!db) {
@@ -147,13 +197,26 @@ export async function getValue(databaseInfo: DatabaseInfo, key: IDBValidKey) {
     }
 }
 
-export async function putValue(databaseInfo: DatabaseInfo, value: any) {
+export async function getValueString(databaseInfo: DatabaseInfo, key: IDBValidKey) {
+    const db = await openDatabase(databaseInfo);
+    if (!db) {
+        return null;
+    }
+    try {
+        return await db.get(databaseInfo.storeName ?? databaseInfo.databaseName, key);
+    } catch (e) {
+        console.error(e);
+        return null;
+    }
+}
+
+export async function putValue(databaseInfo: DatabaseInfo, value: string) {
     const db = await openDatabase(databaseInfo);
     if (!db) {
         return false;
     }
     try {
-        await db.put(databaseInfo.storeName ?? databaseInfo.databaseName, value);
+        await db.put(databaseInfo.storeName ?? databaseInfo.databaseName, JSON.parse(value));
         return true;
     } catch (e) {
         console.error(e);
