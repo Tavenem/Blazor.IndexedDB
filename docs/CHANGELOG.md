@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2
+### Changed
+- Improved null checking
+
 ## 2.0
 ### Changed
 - `IndexedDb` no longer has a typed key. Only string keys are used.

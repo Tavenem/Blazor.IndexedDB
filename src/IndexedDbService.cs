@@ -149,7 +149,9 @@ public class IndexedDbService(
             .ConfigureAwait(false);
         foreach (var item in strings)
         {
-            var deserialized = JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
+            var deserialized = string.IsNullOrEmpty(item)
+                ? null
+                : JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
             if (deserialized is TValue value)
             {
                 yield return value;
@@ -207,7 +209,9 @@ public class IndexedDbService(
             .ConfigureAwait(false);
         foreach (var item in strings)
         {
-            var deserialized = JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
+            var deserialized = string.IsNullOrEmpty(item)
+                ? null
+                : JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
             if (deserialized is TValue value)
             {
                 yield return value;
@@ -265,7 +269,9 @@ public class IndexedDbService(
             var item = await module
                 .InvokeAsync<string>("getValueString", database, id)
                 .ConfigureAwait(false);
-            return JsonSerializer.Deserialize<T>(item, jsonSerializerOptions);
+            return string.IsNullOrEmpty(item)
+                ? null
+                : JsonSerializer.Deserialize<T>(item, jsonSerializerOptions);
         }
     }
 
