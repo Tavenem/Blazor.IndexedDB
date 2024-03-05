@@ -187,7 +187,7 @@ export async function getValueString(databaseInfo, key) {
         return null;
     }
     try {
-        return await db.get(databaseInfo.storeName ?? databaseInfo.databaseName, key);
+        return JSON.stringify(await db.get(databaseInfo.storeName ?? databaseInfo.databaseName, key));
     }
     catch (e) {
         console.error(e);

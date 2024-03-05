@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3
+### Fixed
+- Retrieval of value with options
+
 ## 2.2
 ### Changed
 - Improved null checking
