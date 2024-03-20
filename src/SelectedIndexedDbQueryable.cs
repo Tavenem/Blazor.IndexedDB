@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
 
 namespace Tavenem.Blazor.IndexedDB;
@@ -15,7 +16,8 @@ internal sealed class SelectedIndexedDbQueryable<T, U> : IndexedDbQueryable<T>
     /// <summary>
     /// Constructs a new instance of <see cref="SelectedIndexedDbQueryable{T, U}"/>.
     /// </summary>
-    public SelectedIndexedDbQueryable(IndexedDbQueryable<U> inner, Expression<Func<U, T>>? expression)
+    public SelectedIndexedDbQueryable(IndexedDbQueryable<U> inner, Expression<Func<U, T>>? expression, JsonTypeInfo<T>? typeInfo = null)
+        : base(typeInfo)
     {
         _innerQueryable = inner;
         _selectExpression = expression;
@@ -24,7 +26,8 @@ internal sealed class SelectedIndexedDbQueryable<T, U> : IndexedDbQueryable<T>
     /// <summary>
     /// Constructs a new instance of <see cref="SelectedIndexedDbQueryable{T, U}"/>.
     /// </summary>
-    public SelectedIndexedDbQueryable(IndexedDbQueryable<U> inner, Expression<Func<U, IEnumerable<T>>>? expression)
+    public SelectedIndexedDbQueryable(IndexedDbQueryable<U> inner, Expression<Func<U, IEnumerable<T>>>? expression, JsonTypeInfo<T>? typeInfo = null)
+        : base(typeInfo)
     {
         _innerQueryable = inner;
         _selectManyExpression = expression;
@@ -39,8 +42,9 @@ internal sealed class SelectedIndexedDbQueryable<T, U> : IndexedDbQueryable<T>
         Expression<Func<U, IEnumerable<T>>>? selectManyExpression,
         Expression<Func<T, bool>>? conditionalExpression,
         int skip,
-        int take)
-        : base(conditionalExpression, skip, take)
+        int take,
+        JsonTypeInfo<T>? typeInfo = null)
+        : base(conditionalExpression, skip, take, typeInfo)
     {
         _innerQueryable = inner;
         _selectExpression = selectExpression;

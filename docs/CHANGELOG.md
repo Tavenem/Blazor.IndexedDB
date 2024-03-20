@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0
+### Added
+- `JsonTypeInfo` support
+
 ## 2.3
 ### Fixed
 - Retrieval of value with options

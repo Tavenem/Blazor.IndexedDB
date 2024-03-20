@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
 
 namespace Tavenem.Blazor.IndexedDB;
@@ -18,7 +19,8 @@ internal sealed class ManySelectedIndexedDbQueryable<T, TCollection, U> : Indexe
     public ManySelectedIndexedDbQueryable(
         IndexedDbQueryable<U> inner,
         Expression<Func<U, IEnumerable<TCollection>>> collectionSelector,
-        Expression<Func<U, TCollection, T>> resultSelector)
+        Expression<Func<U, TCollection, T>> resultSelector,
+        JsonTypeInfo<T>? typeInfo = null) : base(typeInfo)
     {
         _innerQueryable = inner;
         _collectionSelector = collectionSelector;
@@ -34,8 +36,9 @@ internal sealed class ManySelectedIndexedDbQueryable<T, TCollection, U> : Indexe
         Expression<Func<U, TCollection, T>> resultSelector,
         Expression<Func<T, bool>>? conditionalExpression,
         int skip,
-        int take)
-        : base(conditionalExpression, skip, take)
+        int take,
+        JsonTypeInfo<T>? typeInfo = null)
+        : base(conditionalExpression, skip, take, typeInfo)
     {
         _innerQueryable = inner;
         _collectionSelector = collectionSelector;

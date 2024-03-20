@@ -14,7 +14,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
 var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-options.TypeInfoResolverChain.Add(ItemContext.Default.WithModifier(static typeInfo =>
+options.TypeInfoResolverChain.Add(ItemContext.Default.WithAddedModifier(static typeInfo =>
 {
     if (typeInfo.Type == typeof(IIdItem))
     {

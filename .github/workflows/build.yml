@@ -9,17 +9,17 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
-      - name: Setup .NET 7
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v1
         with:
           # Semantic version range syntax or exact version of a dotnet version
-          dotnet-version: '7.0.x'
+          dotnet-version: '8.x'
           include-prerelease: true
       
-      - name: Use Node.js 19.x
-        uses: actions/setup-node@v1
+      - name: Use Node.js 21.x
+        uses: actions/setup-node@v4
         with:
-          node-version: 19.x
+          node-version: 21.x
 
       - name: Install dependencies
         run: dotnet restore

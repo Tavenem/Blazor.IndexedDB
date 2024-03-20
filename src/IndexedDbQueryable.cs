@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
 
 namespace Tavenem.Blazor.IndexedDB;
@@ -12,34 +13,41 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     private readonly IndexedDbService? _service;
     private protected readonly int _skip = 0;
     private protected readonly int _take = -1;
+    private protected readonly JsonTypeInfo<T>? _typeInfo;
 
     /// <summary>
     /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
     /// </summary>
-    public IndexedDbQueryable(IndexedDbService? service) => _service = service;
-
-    /// <summary>
-    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
-    /// </summary>
-    protected IndexedDbQueryable() { }
-
-    /// <summary>
-    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
-    /// </summary>
-    protected IndexedDbQueryable(int skip, int take)
+    public IndexedDbQueryable(IndexedDbService? service, JsonTypeInfo<T>? typeInfo = null)
     {
-        _skip = skip;
-        _take = take;
+        _service = service;
+        _typeInfo = typeInfo;
     }
 
     /// <summary>
     /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
     /// </summary>
-    protected IndexedDbQueryable(Expression<Func<T, bool>>? expression, int skip, int take)
+    protected IndexedDbQueryable(JsonTypeInfo<T>? typeInfo = null) => _typeInfo = typeInfo;
+
+    /// <summary>
+    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
+    /// </summary>
+    protected IndexedDbQueryable(int skip, int take, JsonTypeInfo<T>? typeInfo = null)
+    {
+        _skip = skip;
+        _take = take;
+        _typeInfo = typeInfo;
+    }
+
+    /// <summary>
+    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
+    /// </summary>
+    protected IndexedDbQueryable(Expression<Func<T, bool>>? expression, int skip, int take, JsonTypeInfo<T>? typeInfo = null)
     {
         _conditionalExpression = expression;
         _skip = skip;
         _take = take;
+        _typeInfo = typeInfo;
     }
 
     /// <summary>
@@ -49,12 +57,14 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         IndexedDbService? service,
         Expression<Func<T, bool>>? expression,
         int skip,
-        int take)
+        int take,
+        JsonTypeInfo<T>? typeInfo = null)
     {
         _conditionalExpression = expression;
         _service = service;
         _skip = skip;
         _take = take;
+        _typeInfo = typeInfo;
     }
 
     /// <summary>
@@ -316,20 +326,20 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> OfType<TResult>()
+    public IDataStoreQueryable<TResult> OfType<TResult>(JsonTypeInfo<TResult>? typeInfo = null)
         => Where(x => x is TResult)
-        .Select(x => (TResult)(object)x!);
+        .Select(x => (TResult)(object)x!, typeInfo);
 
     /// <inheritdoc/>
     public IOrderedDataStoreQueryable<T> OrderBy<TKey>(Expression<Func<T, TKey>> keySelector, bool descending = false)
-        => new OrderedIndexedDbQueryable<T, TKey>(this, keySelector, descending);
+        => new OrderedIndexedDbQueryable<T, TKey>(this, keySelector, descending, _typeInfo);
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> Select<TResult>(Expression<Func<T, TResult>> selector)
-        => new SelectedIndexedDbQueryable<TResult, T>(this, selector);
+    public IDataStoreQueryable<TResult> Select<TResult>(Expression<Func<T, TResult>> selector, JsonTypeInfo<TResult>? typeInfo = null)
+        => new SelectedIndexedDbQueryable<TResult, T>(this, selector, typeInfo);
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectAsync<TResult>(Func<T, ValueTask<TResult>> selector)
+    public async IAsyncEnumerable<TResult> SelectAsync<TResult>(Func<T, ValueTask<TResult>> selector, JsonTypeInfo<TResult>? typeInfo = null)
     {
         await foreach (var item in IterateSourceAsync())
         {
@@ -338,24 +348,25 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> SelectMany<TResult>(Expression<Func<T, IEnumerable<TResult>>> selector)
-        => new SelectedIndexedDbQueryable<TResult, T>(this, selector);
+    public IDataStoreQueryable<TResult> SelectMany<TResult>(Expression<Func<T, IEnumerable<TResult>>> selector, JsonTypeInfo<TResult>? typeInfo = null)
+        => new SelectedIndexedDbQueryable<TResult, T>(this, selector, typeInfo);
 
     /// <inheritdoc/>
     public IDataStoreQueryable<TResult> SelectMany<TCollection, TResult>(
         Expression<Func<T, IEnumerable<TCollection>>> collectionSelector,
-        Expression<Func<T, TCollection, TResult>> resultSelector) => new ManySelectedIndexedDbQueryable<TResult, TCollection, T>(
+        Expression<Func<T, TCollection, TResult>> resultSelector,
+        JsonTypeInfo<TResult>? typeInfo = null) => new ManySelectedIndexedDbQueryable<TResult, TCollection, T>(
         this,
         collectionSelector,
-        resultSelector);
+        resultSelector,
+        typeInfo);
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TResult>(Func<T, IAsyncEnumerable<TResult>> selector)
+    public async IAsyncEnumerable<TResult> SelectManyAsync<TResult>(Func<T, IAsyncEnumerable<TResult>> selector, JsonTypeInfo<TResult>? typeInfo = null)
     {
         await foreach (var item in IterateSourceAsync())
         {
-            var collection = selector.Invoke(item);
-            await foreach (var child in collection)
+            await foreach (var child in selector.Invoke(item))
             {
                 yield return child;
             }
@@ -363,12 +374,14 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(Func<T, IEnumerable<TCollection>> collectionSelector, Func<T, TCollection, ValueTask<TResult>> resultSelector)
+    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(
+        Func<T, IEnumerable<TCollection>> collectionSelector,
+        Func<T, TCollection, ValueTask<TResult>> resultSelector,
+        JsonTypeInfo<TResult>? typeInfo = null)
     {
         await foreach (var item in IterateSourceAsync())
         {
-            var collection = collectionSelector.Invoke(item);
-            foreach (var child in collection)
+            foreach (var child in collectionSelector.Invoke(item))
             {
                 yield return await resultSelector.Invoke(item, child);
             }
@@ -376,12 +389,14 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(Func<T, IAsyncEnumerable<TCollection>> collectionSelector, Func<T, TCollection, TResult> resultSelector)
+    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(
+        Func<T, IAsyncEnumerable<TCollection>> collectionSelector,
+        Func<T, TCollection, TResult> resultSelector,
+        JsonTypeInfo<TResult>? typeInfo = null)
     {
         await foreach (var item in IterateSourceAsync())
         {
-            var collection = collectionSelector.Invoke(item);
-            await foreach (var child in collection)
+            await foreach (var child in collectionSelector.Invoke(item))
             {
                 yield return resultSelector.Invoke(item, child);
             }
@@ -389,12 +404,14 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(Func<T, IAsyncEnumerable<TCollection>> collectionSelector, Func<T, TCollection, ValueTask<TResult>> resultSelector)
+    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(
+        Func<T, IAsyncEnumerable<TCollection>> collectionSelector,
+        Func<T, TCollection, ValueTask<TResult>> resultSelector,
+        JsonTypeInfo<TResult>? typeInfo = null)
     {
         await foreach (var item in IterateSourceAsync())
         {
-            var collection = collectionSelector.Invoke(item);
-            await foreach (var child in collection)
+            await foreach (var child in collectionSelector.Invoke(item))
             {
                 yield return await resultSelector.Invoke(item, child);
             }
@@ -406,14 +423,16 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         _service,
         _conditionalExpression,
         count,
-        _take);
+        _take,
+        _typeInfo);
 
     /// <inheritdoc/>
     public virtual IDataStoreQueryable<T> Take(int count) => new IndexedDbQueryable<T>(
         _service,
         _conditionalExpression,
         _skip,
-        count);
+        count,
+        _typeInfo);
 
     /// <summary>
     /// Enumerates the results of this <see cref="IDataStoreQueryable{T}" /> and returns them as
@@ -444,7 +463,8 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
             ? predicate
             : CombineCondition(predicate),
         _skip,
-        _take);
+        _take,
+        _typeInfo);
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<T> WhereAsync(Func<T, ValueTask<bool>> predicate)
@@ -489,7 +509,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         {
             var batchCount = 0;
             var enumerator = _service
-                .GetBatchAsync<T>(reset)
+                .GetBatchAsync(reset, _typeInfo)
                 .GetAsyncEnumerator();
             while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
             {
@@ -535,7 +555,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         {
             var batchCount = 0;
             await foreach (var item in _service
-                .GetBatchAsync<T>(reset))
+                .GetBatchAsync(reset, _typeInfo))
             {
                 batchCount++;
                 if (condition?.Invoke(item) == false)

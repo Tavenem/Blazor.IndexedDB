@@ -1,5 +1,6 @@
 using Microsoft.JSInterop;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
 
 namespace Tavenem.Blazor.IndexedDB;
@@ -121,6 +122,9 @@ public class IndexedDbService(
     /// Retrieves all the items in an IndexedDB object store.
     /// </summary>
     /// <typeparam name="TValue">The type of value being retrieved.</typeparam>
+    /// <param name="typeInfo">
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
+    /// </param>
     /// <remarks>
     /// Note: the IndexedDB object store cannot filter items by type. Using this method when there
     /// are objects of different types in your data store will result in an exception when
@@ -128,11 +132,11 @@ public class IndexedDbService(
     /// method should only be used when you only employ this database to store objects of a uniform
     /// type (or which inherit from a common type).
     /// </remarks>
-    public async IAsyncEnumerable<TValue> GetAllAsync<TValue>()
+    public async IAsyncEnumerable<TValue> GetAllAsync<TValue>(JsonTypeInfo<TValue>? typeInfo = null)
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
 
-        if (jsonSerializerOptions is null)
+        if (typeInfo is null && jsonSerializerOptions is null)
         {
             var items = await module
                 .InvokeAsync<TValue[]>("getAll", database)
@@ -147,12 +151,26 @@ public class IndexedDbService(
         var strings = await module
             .InvokeAsync<string[]>("getAllStrings", database)
             .ConfigureAwait(false);
+
         foreach (var item in strings)
         {
-            var deserialized = string.IsNullOrEmpty(item)
-                ? null
-                : JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
-            if (deserialized is TValue value)
+            if (string.IsNullOrEmpty(item))
+            {
+                continue;
+            }
+
+            TValue? value;
+            try
+            {
+                value = typeInfo is null
+                    ? JsonSerializer.Deserialize<TValue>(item, jsonSerializerOptions)
+                    : JsonSerializer.Deserialize(item, typeInfo);
+            }
+            catch
+            {
+                continue;
+            }
+            if (value is not null)
             {
                 yield return value;
             }
@@ -173,6 +191,9 @@ public class IndexedDbService(
     /// calls will return an empty array, until <see langword="true"/> is passed for this parameter.
     /// </para>
     /// </param>
+    /// <param name="typeInfo">
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
+    /// </param>
     /// <remarks>
     /// <para>
     /// This method can be used directly, but it may be more intuitive to call <see
@@ -188,11 +209,11 @@ public class IndexedDbService(
     /// type (or which inherit from a common type).
     /// </para>
     /// </remarks>
-    public async IAsyncEnumerable<TValue> GetBatchAsync<TValue>(bool reset = false)
+    public async IAsyncEnumerable<TValue> GetBatchAsync<TValue>(bool reset = false, JsonTypeInfo<TValue>? typeInfo = null)
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
 
-        if (jsonSerializerOptions is null)
+        if (typeInfo is null && jsonSerializerOptions is null)
         {
             var items = await module
                 .InvokeAsync<TValue[]>("getBatch", database, reset)
@@ -207,12 +228,26 @@ public class IndexedDbService(
         var strings = await module
             .InvokeAsync<string[]>("getBatchStrings", database, reset)
             .ConfigureAwait(false);
+
         foreach (var item in strings)
         {
-            var deserialized = string.IsNullOrEmpty(item)
-                ? null
-                : JsonSerializer.Deserialize<IIdItem>(item, jsonSerializerOptions);
-            if (deserialized is TValue value)
+            if (string.IsNullOrEmpty(item))
+            {
+                continue;
+            }
+
+            TValue? value;
+            try
+            {
+                value = typeInfo is null
+                    ? JsonSerializer.Deserialize<TValue>(item, jsonSerializerOptions)
+                    : JsonSerializer.Deserialize(item, typeInfo);
+            }
+            catch
+            {
+                continue;
+            }
+            if (value is not null)
             {
                 yield return value;
             }
@@ -231,12 +266,41 @@ public class IndexedDbService(
     /// The item with the given id, or <see langword="null"/> if no item was found with that id.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// This wraps <see cref="GetItemAsync{T}(string?, TimeSpan?)"/> in a <see cref="Task"/> and
     /// blocks on the result. Always use <see cref="GetItemAsync{T}(string?, TimeSpan?)"/> when
     /// possible.
+    /// </para>
+    /// <para>
+    /// Note: this overload will typically fail in the browser (or whenever trimming is enabled),
+    /// since it relies on reflection-based (de)serialization. To use source generated
+    /// deserialization, use the overload which takes a <see cref="JsonTypeInfo{T}"/>.
+    /// </para>
     /// </remarks>
     public T? GetItem<T>(string? id, TimeSpan? cacheTimeout = null) where T : class, IIdItem
         => GetItemAsync<T>(id, cacheTimeout).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Gets the <see cref="IIdItem"/> with the given <paramref name="id"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of <see cref="IIdItem"/> to retrieve.</typeparam>
+    /// <param name="id">The unique id of the item to retrieve.</param>
+    /// <param name="typeInfo">
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
+    /// </param>
+    /// <param name="cacheTimeout">
+    /// Ignored. <see cref="IndexedDbService"/> does not cache results.
+    /// </param>
+    /// <returns>
+    /// The item with the given id, or <see langword="null"/> if no item was found with that id.
+    /// </returns>
+    /// <remarks>
+    /// This wraps <see cref="GetItemAsync{T}(string?, JsonTypeInfo{T}?, TimeSpan?)"/> in a <see
+    /// cref="Task"/> and blocks on the result. Always use <see cref="GetItemAsync{T}(string?,
+    /// JsonTypeInfo{T}?, TimeSpan?)"/> when possible.
+    /// </remarks>
+    public T? GetItem<T>(string? id, JsonTypeInfo<T>? typeInfo, TimeSpan? cacheTimeout = null) where T : class, IIdItem
+        => GetItemAsync<T>(id, typeInfo, cacheTimeout).AsTask().GetAwaiter().GetResult();
 
     /// <summary>
     /// Gets the <see cref="IIdItem"/> with the given <paramref name="id"/>.
@@ -249,6 +313,11 @@ public class IndexedDbService(
     /// <returns>
     /// The item with the given id, or <see langword="null"/> if no item was found with that id.
     /// </returns>
+    /// <remarks>
+    /// Note: this overload will typically fail in the browser (or whenever trimming is enabled),
+    /// since it relies on reflection-based (de)serialization. To use source generated
+    /// deserialization, use the overload which takes a <see cref="JsonTypeInfo{T}"/>.
+    /// </remarks>
     public async ValueTask<T?> GetItemAsync<T>(string? id, TimeSpan? cacheTimeout = null) where T : class, IIdItem
     {
         if (id is null)
@@ -275,8 +344,53 @@ public class IndexedDbService(
         }
     }
 
+    /// <summary>
+    /// Gets the <see cref="IIdItem"/> with the given <paramref name="id"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of <see cref="IIdItem"/> to retrieve.</typeparam>
+    /// <param name="id">The unique id of the item to retrieve.</param>
+    /// <param name="typeInfo">
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
+    /// </param>
+    /// <param name="cacheTimeout">
+    /// Ignored. <see cref="IndexedDbService"/> does not cache results.
+    /// </param>
+    /// <returns>
+    /// The item with the given id, or <see langword="null"/> if no item was found with that id.
+    /// </returns>
+    public async ValueTask<T?> GetItemAsync<T>(string? id, JsonTypeInfo<T>? typeInfo, TimeSpan? cacheTimeout = null) where T : class, IIdItem
+    {
+        if (id is null)
+        {
+            return default;
+        }
+
+        var module = await _moduleTask.Value.ConfigureAwait(false);
+
+        if (typeInfo is null && jsonSerializerOptions is null)
+        {
+            return await module
+                .InvokeAsync<T>("getValue", database, id)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            var item = await module
+                .InvokeAsync<string>("getValueString", database, id)
+                .ConfigureAwait(false);
+            if (string.IsNullOrEmpty(item))
+            {
+                return null;
+            }
+
+            return typeInfo is null
+                ? JsonSerializer.Deserialize<T>(item, jsonSerializerOptions)
+                : JsonSerializer.Deserialize(item, typeInfo);
+        }
+    }
+
     /// <inheritdoc/>
-    public IDataStoreQueryable<T> Query<T>() where T : class, IIdItem => new IndexedDbQueryable<T>(this);
+    public IDataStoreQueryable<T> Query<T>(JsonTypeInfo<T>? typeInfo = null) where T : class, IIdItem => new IndexedDbQueryable<T>(this, typeInfo);
 
     /// <summary>
     /// Removes the stored item with the given id.
@@ -362,10 +476,44 @@ public class IndexedDbService(
     /// neither did any failure).
     /// </remarks>
     /// <remarks>
+    /// <para>
     /// This blocks on the result of <see cref="StoreItemAsync{T}(T, TimeSpan?)"/>. Always use <see
     /// cref="StoreItemAsync{T}(T, TimeSpan?)"/> when possible.
+    /// </para>
+    /// <para>
+    /// Note: this overload will typically fail in the browser (or whenever trimming is enabled),
+    /// since it relies on reflection-based (de)serialization. To use source generated
+    /// deserialization, use the overload which takes a <see cref="JsonTypeInfo{T}"/>.
+    /// </para>
     /// </remarks>
     public bool StoreItem<T>(T? item, TimeSpan? cacheTimeout = null) where T : class, IIdItem
+        => StoreItemAsync<T>(item, cacheTimeout).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Upserts the given <paramref name="item"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of <see cref="IIdItem"/> to upsert.</typeparam>
+    /// <param name="item">The item to store.</param>
+    /// <param name="typeInfo">
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
+    /// </param>
+    /// <param name="cacheTimeout">
+    /// Ignored. <see cref="IndexedDbService"/> does not cache results.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
+    /// <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
+    /// indicate that the operation did not fail (even though no storage operation took place,
+    /// neither did any failure).
+    /// </remarks>
+    /// <remarks>
+    /// This blocks on the result of <see cref="StoreItemAsync{T}(T, TimeSpan?)"/>. Always use <see
+    /// cref="StoreItemAsync{T}(T, JsonTypeInfo{T}?, TimeSpan?)"/> when possible.
+    /// </remarks>
+    public bool StoreItem<T>(T? item, JsonTypeInfo<T>? typeInfo, TimeSpan? cacheTimeout = null) where T : class, IIdItem
         => StoreItemAsync<T>(item, cacheTimeout).GetAwaiter().GetResult();
 
     /// <summary>
@@ -410,5 +558,57 @@ public class IndexedDbService(
                 .InvokeAsync<bool>("putValue", database, JsonSerializer.Serialize<IIdItem>(item, jsonSerializerOptions))
                 .ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Upserts the given <paramref name="item"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of <see cref="IIdItem"/> to upsert.</typeparam>
+    /// <param name="item">The item to store.</param>
+    /// <param name="typeInfo">
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
+    /// </param>
+    /// <param name="cacheTimeout">
+    /// Ignored. <see cref="IndexedDbService"/> does not cache results.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the item was successfully persisted to the data store;
+    /// otherwise <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>,
+    /// to indicate that the operation did not fail (even though no storage operation took
+    /// place, neither did any failure).
+    /// </remarks>
+    public async Task<bool> StoreItemAsync<T>(T? item, JsonTypeInfo<T>? typeInfo, TimeSpan? cacheTimeout = null) where T : class, IIdItem
+    {
+        if (item is null)
+        {
+            return true;
+        }
+
+        var module = await _moduleTask.Value.ConfigureAwait(false);
+
+        // In each case, the value is explicitly serialized before invoking to ensure that the
+        // correct options are used, rather than whatever happens to be configured for JavaScript
+        // interop.
+
+        if (jsonSerializerOptions is not null)
+        {
+            return await module
+                .InvokeAsync<bool>("putValue", database, JsonSerializer.Serialize<IIdItem>(item, jsonSerializerOptions))
+                .ConfigureAwait(false);
+        }
+
+        if (typeInfo is not null)
+        {
+            return await module
+                .InvokeAsync<bool>("putValue", database, JsonSerializer.Serialize(item, typeInfo))
+                .ConfigureAwait(false);
+        }
+
+        return await module
+            .InvokeAsync<bool>("putValue", database, JsonSerializer.Serialize(item))
+            .ConfigureAwait(false);
     }
 }

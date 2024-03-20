@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
 
 namespace Tavenem.Blazor.IndexedDB;
@@ -15,7 +16,8 @@ public sealed class OrderedIndexedDbQueryable<T, TKey> : IndexedDbQueryable<T>, 
     /// <summary>
     /// Constructs a new instance of <see cref="OrderedIndexedDbQueryable{T, TKey}"/>.
     /// </summary>
-    public OrderedIndexedDbQueryable(IndexedDbQueryable<T> inner, Expression<Func<T, TKey>> keySelector, bool descending = false)
+    public OrderedIndexedDbQueryable(IndexedDbQueryable<T> inner, Expression<Func<T, TKey>> keySelector, bool descending = false, JsonTypeInfo<T>? typeInfo = null)
+        : base(typeInfo)
     {
         _innerQueryable = inner;
         _keySelector = keySelector;
@@ -31,7 +33,8 @@ public sealed class OrderedIndexedDbQueryable<T, TKey> : IndexedDbQueryable<T>, 
         bool descending,
         Expression<Func<T, bool>>? conditionalExpression,
         int skip,
-        int take) : base(conditionalExpression, skip, take)
+        int take,
+        JsonTypeInfo<T>? typeInfo = null) : base(conditionalExpression, skip, take, typeInfo)
     {
         _innerQueryable = inner;
         _keySelector = keySelector;
