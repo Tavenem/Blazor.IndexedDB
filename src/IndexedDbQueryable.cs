@@ -10,7 +10,7 @@ namespace Tavenem.Blazor.IndexedDB;
 public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 {
     private protected readonly Expression<Func<T, bool>>? _conditionalExpression;
-    private readonly IndexedDbService? _service;
+    private readonly IndexedDbStore? _store;
     private protected readonly int _skip = 0;
     private protected readonly int _take = -1;
     private protected readonly JsonTypeInfo<T>? _typeInfo;
@@ -18,9 +18,9 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     /// <summary>
     /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
     /// </summary>
-    public IndexedDbQueryable(IndexedDbService? service, JsonTypeInfo<T>? typeInfo = null)
+    public IndexedDbQueryable(IndexedDbStore? store, JsonTypeInfo<T>? typeInfo = null)
     {
-        _service = service;
+        _store = store;
         _typeInfo = typeInfo;
     }
 
@@ -54,14 +54,14 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
     /// </summary>
     private IndexedDbQueryable(
-        IndexedDbService? service,
+        IndexedDbStore? store,
         Expression<Func<T, bool>>? expression,
         int skip,
         int take,
         JsonTypeInfo<T>? typeInfo = null)
     {
         _conditionalExpression = expression;
-        _service = service;
+        _store = store;
         _skip = skip;
         _take = take;
         _typeInfo = typeInfo;
@@ -420,7 +420,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 
     /// <inheritdoc/>
     public virtual IDataStoreQueryable<T> Skip(int count) => new IndexedDbQueryable<T>(
-        _service,
+        _store,
         _conditionalExpression,
         count,
         _take,
@@ -428,7 +428,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 
     /// <inheritdoc/>
     public virtual IDataStoreQueryable<T> Take(int count) => new IndexedDbQueryable<T>(
-        _service,
+        _store,
         _conditionalExpression,
         _skip,
         count,
@@ -458,7 +458,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 
     /// <inheritdoc/>
     public virtual IDataStoreQueryable<T> Where(Expression<Func<T, bool>> predicate) => new IndexedDbQueryable<T>(
-        _service,
+        _store,
         _conditionalExpression is null
             ? predicate
             : CombineCondition(predicate),
@@ -498,7 +498,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 
     internal virtual IEnumerable<T> IterateSource()
     {
-        if (_service is null)
+        if (_store is null)
         {
             yield break;
         }
@@ -508,7 +508,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         while (true)
         {
             var batchCount = 0;
-            var enumerator = _service
+            var enumerator = _store
                 .GetBatchAsync(reset, _typeInfo)
                 .GetAsyncEnumerator();
             while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
@@ -544,7 +544,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 
     internal virtual async IAsyncEnumerable<T> IterateSourceAsync()
     {
-        if (_service is null)
+        if (_store is null)
         {
             yield break;
         }
@@ -554,7 +554,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         while (true)
         {
             var batchCount = 0;
-            await foreach (var item in _service
+            await foreach (var item in _store
                 .GetBatchAsync(reset, _typeInfo))
             {
                 batchCount++;

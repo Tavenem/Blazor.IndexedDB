@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using Tavenem.Blazor.IndexedDB;
 using Tavenem.Blazor.IndexedDB.Sample;
 using Tavenem.DataStorage;
 
@@ -27,8 +26,10 @@ options.TypeInfoResolverChain.Add(ItemContext.Default.WithAddedModifier(static t
     }
 }));
 
+builder.Services.AddIndexedDbService();
 builder.Services.AddIndexedDb(
-    new IndexedDb("Tavenem.Blazor.IndexedDB.Sample", 1),
+    "Tavenem.Blazor.IndexedDB.Sample",
+    1,
     options);
 
 await builder.Build().RunAsync().ConfigureAwait(false);

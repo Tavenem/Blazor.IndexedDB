@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.6" />
     <PackageReference Include="Tavenem.DataStore" Version="2.0.4" />
   </ItemGroup>
 
@@ -48,7 +48,7 @@
     <ClientAssetsRestoreOutputs>$(ClientAssetsDirectory)node_modules\.package-lock.json</ClientAssetsRestoreOutputs>
 
     <!-- Run restore only once for multi targeting builds -->
-    <ClientAssetsRestoreBeforeTargets Condition="'$(TargetFramework)' == 'net7.0'">DispatchToInnerBuilds</ClientAssetsRestoreBeforeTargets>
+    <ClientAssetsRestoreBeforeTargets Condition="'$(TargetFramework)' == 'net8.0'">DispatchToInnerBuilds</ClientAssetsRestoreBeforeTargets>
   </PropertyGroup>
 
   <ItemGroup>
@@ -56,11 +56,7 @@
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Content>
-    <ClientAssetsInputs Include="$(ClientAssetsDirectory)rollup.config.js;$(ClientAssetsDirectory)**\*.ts" Exclude="$(DefaultItemExcludes);$(ClientAssetsDirectory)**\*.d.ts;$(ClientAssetsDirectory)**\_*.ts" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.133" />
+    <ClientAssetsInputs Include="$(ClientAssetsDirectory)esbuild_config.mjs;$(ClientAssetsDirectory)**\*.ts" Exclude="$(DefaultItemExcludes);$(ClientAssetsDirectory)**\*.d.ts;$(ClientAssetsDirectory)**\_*.ts" />
   </ItemGroup>
 
   <Target Name="ClientAssetsRestore" BeforeTargets="$(ClientAssetsRestoreBeforeTargets)" Inputs="$(ClientAssetsRestoreInputs)" Outputs="$(ClientAssetsRestoreOutputs)">
@@ -76,7 +72,7 @@
     <MakeDir Directories="$(_ClientAssetsOutputFullPath)" />
 
     <Message Importance="high" Text="Running npm run build:$(Configuration)..." />
-    <Exec Command="npm run build:$(Configuration) -- -d $(_ClientAssetsOutputFullPath)" WorkingDirectory="$(ClientAssetsDirectory)" />
+    <Exec Command="npm run build -- -o $(_ClientAssetsOutputFullPath)" WorkingDirectory="$(ClientAssetsDirectory)" />
 
     <ItemGroup>
       <_ClientAssetsBuildOutput Include="$(IntermediateOutputPath)clientassets\**"></_ClientAssetsBuildOutput>
