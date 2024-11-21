@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.1
+### Changed
+- Multitarget .NET 8 & 9
+
 ## 4.0
 This new version changes the model substantially.
 
