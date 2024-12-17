@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.2
+### Fixed
+- Does not create object store if it already exists
+
 ## 4.1
 ### Changed
 - Multitarget .NET 8 & 9
