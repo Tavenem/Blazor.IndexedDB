@@ -24,7 +24,7 @@ public static class MicrosoftExtensionsDependencyInjection
     /// </summary>
     /// <param name="services">An <see cref="IServiceCollection"/> instance.</param>
     /// <param name="databaseName">The name of the database.</param>
-    /// <param name="version">The version number of the current schema.</param>
+    /// <param name="initialVersion">The version number of the current schema.Each time a new objectStore is added, the current version is incremented by 1</param>
     /// <param name="jsonSerializerOptions">
     /// A configured <see cref="JsonSerializerOptions"/> instance. Optional.
     /// </param>
@@ -36,11 +36,11 @@ public static class MicrosoftExtensionsDependencyInjection
     public static void AddIndexedDb(
         this IServiceCollection services,
         string databaseName,
-        int? version = null,
+        int? initialVersion = 1,
         JsonSerializerOptions? jsonSerializerOptions = null)
         => services.AddKeyedScoped(databaseName, (provider, name) => new IndexedDb(
             databaseName,
             provider.GetRequiredService<IndexedDbService>(),
-            version,
+            initialVersion,
             jsonSerializerOptions));
 }

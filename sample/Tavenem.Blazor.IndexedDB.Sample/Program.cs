@@ -32,6 +32,6 @@ options.TypeInfoResolverChain.Add(DatabaseContext.Default.WithAddedModifier(stat
 builder.Services.AddIndexedDbService();
 builder.Services.AddIndexedDb(
     "Tavenem.Blazor.IndexedDB.Sample",
-    1,
+    initialVersion: 1,
     options);
 await builder.Build().RunAsync();
