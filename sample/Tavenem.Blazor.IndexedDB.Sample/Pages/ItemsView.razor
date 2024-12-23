@@ -1,0 +1,80 @@
+﻿@page "/Items"
+@using Tavenem.Blazor.IndexedDB.Sample.Components
+@using Tavenem.Blazor.IndexedDB.Sample.Models
+
+@inherits EntityComponent<Item>
+
+<PageTitle>Item Example</PageTitle>
+<h1>Items Management</h1>
+<h2>Items Count: @Count</h2>
+
+<div style="margin-top:1rem">
+    <label for="filter">Filter</label>
+    <input @bind="Filter" placeholder="Search by Id" style="margin-bottom: 10px; width: 100%; padding: 8px;" />
+    <button @onclick="OnFilterAsync" type="button">Filter</button>
+    <p><span><strong>Found?</strong> @FilterMatched</span></p>
+    <p><span><strong>Matched:</strong> @FilterCount</span></p>
+</div>
+<table class="styled-table">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Surname</th>
+            <th>Phone</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (FilteredItems.Any())
+        {
+            @foreach (var currentItem in FilteredItems)
+            {
+                <tr>
+                    <td>@currentItem.Id</td>
+                    <td>
+                        @if (currentItem.IsEditing)
+                        {
+                            <input @bind="currentItem.Value" />
+                        }
+                        else
+                        {
+                            @currentItem.Value
+                        }
+                    </td>
+                    <td>
+                        @if (currentItem.IsEditing)
+                        {
+                            <button @onclick="() => OnAddAsync(currentItem)">Save</button>
+                            <button @onclick="() => OnCancelEdit(currentItem)">Cancel</button>
+                        }
+                        else
+                        {
+                            <button @onclick="() => OnEdit(currentItem)">Edit</button>
+                            <button @onclick="() => OnDeleteAsync(currentItem)">Delete</button>
+                        }
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" style="text-align:center;">No data available</td>
+            </tr>
+        }
+    </tbody>
+    <tfoot>
+        <tr>
+            <td>&nbsp;</td>
+            <td><input placeholder="Value" @bind="NewItem.Value" /></td>
+            <td>
+                <button @onclick="@(async() => await OnAddAsync(NewItem))">Add</button>
+            </td>
+        </tr>
+    </tfoot>
+</table>
+
+
+
+

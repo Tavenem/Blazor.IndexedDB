@@ -534,7 +534,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
                 break;
             }
             if ((_take >= 0 && count >= _take)
-                || batchCount < 20)
+                || batchCount < int.MaxValue)
             {
                 break;
             }
@@ -578,7 +578,7 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
                 break;
             }
             if ((_take >= 0 && count >= _take)
-                || batchCount < 20)
+                || batchCount < int.MaxValue)
             {
                 break;
             }

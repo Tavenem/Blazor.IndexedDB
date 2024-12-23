@@ -19,7 +19,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\version.json = ..\version.json
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tavenem.Blazor.IndexedDB.Sample", "..\sample\Tavenem.Blazor.IndexedDB.Sample.csproj", "{29F661DB-82A3-4B8B-9479-49724178A222}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tavenem.Blazor.IndexedDB.Sample", "..\sample\Tavenem.Blazor.IndexedDB.Sample\Tavenem.Blazor.IndexedDB.Sample.csproj", "{F4D7EAE7-8D54-404E-B0F0-AECF9C67D72A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,10 +31,10 @@ Global
 		{A56986C6-9F23-4856-B399-F6531BF45D48}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A56986C6-9F23-4856-B399-F6531BF45D48}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A56986C6-9F23-4856-B399-F6531BF45D48}.Release|Any CPU.Build.0 = Release|Any CPU
-		{29F661DB-82A3-4B8B-9479-49724178A222}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{29F661DB-82A3-4B8B-9479-49724178A222}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{29F661DB-82A3-4B8B-9479-49724178A222}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{29F661DB-82A3-4B8B-9479-49724178A222}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4D7EAE7-8D54-404E-B0F0-AECF9C67D72A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4D7EAE7-8D54-404E-B0F0-AECF9C67D72A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4D7EAE7-8D54-404E-B0F0-AECF9C67D72A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4D7EAE7-8D54-404E-B0F0-AECF9C67D72A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

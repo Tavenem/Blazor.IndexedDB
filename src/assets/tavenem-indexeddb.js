@@ -6,17 +6,25 @@ async function openDatabase(databaseInfo) {
     }
     databaseInfo.keyPath ??= 'id';
     try {
-        const database = await openDB(databaseInfo.databaseName, databaseInfo.version, {
-            upgrade(db) {
-                const storeName = databaseInfo.storeName ?? databaseInfo.databaseName;
-                if (!db.objectStoreNames.contains(storeName)) {
-                    db.createObjectStore(databaseInfo.storeName ?? databaseInfo.databaseName, {
-                        keyPath: databaseInfo.keyPath,
-                    });
+        const storeName = databaseInfo.storeName ?? databaseInfo.databaseName;
+        const currentVersionConnection = await openDB(databaseInfo.databaseName);
+        if (currentVersionConnection != null &&
+            !currentVersionConnection.objectStoreNames.contains(storeName)) {
+            databaseInfo.version = currentVersionConnection.version + 1;
+            currentVersionConnection.close();
+            const database = await openDB(databaseInfo.databaseName, databaseInfo.version, {
+                upgrade(db) {
+                    const storeName = databaseInfo.storeName ?? databaseInfo.databaseName;
+                    if (!db.objectStoreNames.contains(storeName)) {
+                        db.createObjectStore(databaseInfo.storeName ?? databaseInfo.databaseName, {
+                            keyPath: databaseInfo.keyPath,
+                        });
+                    }
                 }
-            }
-        });
-        return database;
+            });
+            return database;
+        }
+        return currentVersionConnection;
     }
     catch (e) {
         console.error(e);

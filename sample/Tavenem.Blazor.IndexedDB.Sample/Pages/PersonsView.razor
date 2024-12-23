@@ -1,0 +1,99 @@
+﻿@page "/Persons"
+
+@using Tavenem.Blazor.IndexedDB.Sample.Components
+@using Tavenem.Blazor.IndexedDB.Sample.Models
+
+@inherits EntityComponent<Person>
+
+<PageTitle>Person Management Example</PageTitle>
+<h1>Person Management</h1>
+<h2>Item Count: @Count</h2>
+
+<div style="margin-top:1rem">
+    <label for="filter">Filter</label>
+    <input @bind="Filter" placeholder="Search by Id" style="margin-bottom: 10px; width: 100%; padding: 8px;" />
+    <button @onclick="OnFilterAsync" type="button">Filter</button>
+    <p><span><strong>Found?</strong> @FilterMatched</span></p>
+    <p><span><strong>Matched:</strong> @FilterCount</span></p>
+</div>
+<table class="styled-table">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Surname</th>
+            <th>Phone</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (FilteredItems.Any())
+        {
+            @foreach (var person in FilteredItems)
+            {
+                <tr>
+                    <td>@person.Id</td>
+                    <td>
+                        @if (person.IsEditing)
+                        {
+                            <input @bind="person.Name" />
+                        }
+                        else
+                        {
+                            @person.Name
+                        }
+                    </td>
+                    <td>
+                        @if (person.IsEditing)
+                        {
+                            <input @bind="person.Surname" />
+                        }
+                        else
+                        {
+                            @person.Surname
+                        }
+                    </td>
+                    <td>
+                        @if (person.IsEditing)
+                        {
+                            <input @bind="person.Phone" />
+                        }
+                        else
+                        {
+                            @person.Phone
+                        }
+                    </td>
+                    <td>
+                        @if (person.IsEditing)
+                        {
+                            <button @onclick="() => OnAddAsync(person)">Save</button>
+                            <button @onclick="() => OnCancelEdit(person)">Cancel</button>
+                        }
+                        else
+                        {
+                            <button @onclick="() => OnEdit(person)">Edit</button>
+                            <button @onclick="() => OnDeleteAsync(person)">Delete</button>
+                        }
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" style="text-align:center;">No data available</td>
+            </tr>
+        }
+    </tbody>
+    <tfoot>
+        <tr>
+            <td>&nbsp;</td>
+            <td><input placeholder="Name" @bind="NewItem.Name" /></td>
+            <td><input placeholder="Surname" @bind="NewItem.Surname" /></td>
+            <td><input placeholder="Phone" @bind="NewItem.Phone" /></td>
+            <td>
+                <button @onclick="@(async() => await OnAddAsync(NewItem))">Add</button>
+            </td>
+        </tr>
+    </tfoot>
+</table>

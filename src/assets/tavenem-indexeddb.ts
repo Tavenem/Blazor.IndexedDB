@@ -18,12 +18,24 @@ async function openDatabase(databaseInfo: DatabaseInfo) {
     if (databaseInfo.version === null) {
         databaseInfo.version = undefined;
     }
+
     databaseInfo.keyPath ??= 'id';
 
     try {
-        const database = await openDB(
-            databaseInfo.databaseName,
-            databaseInfo.version, {
+
+        const storeName = databaseInfo.storeName ?? databaseInfo.databaseName;
+
+        const currentVersionConnection = await openDB(databaseInfo.databaseName);
+
+        if (currentVersionConnection != null &&
+            !currentVersionConnection.objectStoreNames.contains(storeName)) {
+            databaseInfo.version = currentVersionConnection.version + 1;
+
+            currentVersionConnection.close();
+
+            const database = await openDB(
+                databaseInfo.databaseName,
+                databaseInfo.version, {
                 upgrade(db) {
                     const storeName = databaseInfo.storeName ?? databaseInfo.databaseName;
                     if (!db.objectStoreNames.contains(storeName)) {
@@ -34,7 +46,12 @@ async function openDatabase(databaseInfo: DatabaseInfo) {
                     }
                 }
             });
-        return database;
+
+            return database;
+        }
+
+        return currentVersionConnection;
+
     } catch (e) {
         console.error(e);
         return null;
