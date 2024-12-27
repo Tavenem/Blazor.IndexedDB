@@ -8,9 +8,18 @@ async function openDatabase(databaseInfo) {
     try {
         const database = await openDB(databaseInfo.databaseName, databaseInfo.version, {
             upgrade(db) {
-                const storeName = databaseInfo.storeName ?? databaseInfo.databaseName;
-                if (!db.objectStoreNames.contains(storeName)) {
-                    db.createObjectStore(databaseInfo.storeName ?? databaseInfo.databaseName, {
+                if (databaseInfo.storeNames) {
+                    for (const storeName of databaseInfo.storeNames) {
+                        if (!db.objectStoreNames.contains(storeName)) {
+                            db.createObjectStore(storeName, {
+                                keyPath: databaseInfo.keyPath,
+                            });
+                        }
+                    }
+                }
+                if (db.objectStoreNames.length == 0
+                    && !db.objectStoreNames.contains(databaseInfo.databaseName)) {
+                    db.createObjectStore(databaseInfo.databaseName, {
                         keyPath: databaseInfo.keyPath,
                     });
                 }

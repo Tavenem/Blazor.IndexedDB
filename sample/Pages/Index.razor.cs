@@ -5,7 +5,7 @@ namespace Tavenem.Blazor.IndexedDB.Sample.Pages;
 
 public partial class Index
 {
-    private const string _storeName = "SampleStore";
+    public const string StoreName = "SampleStore";
 
     private long Count { get; set; }
 
@@ -49,7 +49,8 @@ public partial class Index
         var item = new Item { Value = Value };
         Value = null;
 
-        if (await IndexedDb[_storeName].StoreItemAsync(item))
+        var store = IndexedDb[StoreName];
+        if (store is not null && await store.StoreItemAsync(item))
         {
             Items.Add(item);
             if (Filter is null
@@ -64,7 +65,11 @@ public partial class Index
 
     private async Task OnClearAsync()
     {
-        await IndexedDb[_storeName].ClearAsync();
+        var store = IndexedDb[StoreName];
+        if (store is not null)
+        {
+            await store.ClearAsync();
+        }
         Items.Clear();
         FilteredItems.Clear();
         Count = 0;
@@ -74,7 +79,8 @@ public partial class Index
 
     private async Task OnDeleteAsync(Item item)
     {
-        if (await IndexedDb[_storeName].RemoveItemAsync(item.Id))
+        var store = IndexedDb[StoreName];
+        if (store is null || await store.RemoveItemAsync(item.Id))
         {
             Items.Remove(item);
             FilteredItems.Remove(item);
@@ -108,9 +114,19 @@ public partial class Index
             return;
         }
 
-        var query = IndexedDb[_storeName]
+        var store = IndexedDb[StoreName];
+        if (store is null)
+        {
+            FilterMatched = false;
+            FilterCount = 0;
+            FilteredItems = [];
+            return;
+        }
+
+        var query = store
             .Query<Item>()
-            .Where(x => x.Value != null && x.Value.Contains(Filter, StringComparison.OrdinalIgnoreCase));
+            .Where(x => x.Value != null
+                && x.Value.Contains(Filter, StringComparison.OrdinalIgnoreCase));
 
         // deliberately using inefficient logic, in order to test more paths
         FilterMatched = await query.AnyAsync();
@@ -127,9 +143,17 @@ public partial class Index
 
     private async Task OnRefreshAsync()
     {
-        Count = await IndexedDb[_storeName].CountAsync();
         Items = [];
-        await foreach (var item in IndexedDb[_storeName].GetAllAsync<Item>())
+
+        var store = IndexedDb[StoreName];
+        if (store is null)
+        {
+            Count = 0;
+            return;
+        }
+
+        Count = await store.CountAsync();
+        await foreach (var item in store.GetAllAsync<Item>())
         {
             Items.Add(item);
         }
@@ -145,7 +169,12 @@ public partial class Index
             return;
         }
 
-        var newItem = await IndexedDb[_storeName].GetItemAsync<Item>(item.Id);
+        var store = IndexedDb[StoreName];
+        if (store is null)
+        {
+            return;
+        }
+        var newItem = await store.GetItemAsync<Item>(item.Id);
         if (newItem is not null)
         {
             Items.RemoveAt(index);
@@ -158,14 +187,13 @@ public partial class Index
         item.Value = item.NewValue;
         item.IsUpdating = false;
 
-        if (!await IndexedDb[_storeName].StoreItemAsync(item))
+        var store = IndexedDb[StoreName];
+        if (store is not null
+            && !await store.StoreItemAsync(item)
+            && await store.GetItemAsync<Item>(item.Id) is Item oldItem)
         {
-            var oldItem = await IndexedDb[_storeName].GetItemAsync<Item>(item.Id);
-            if (oldItem is not null)
-            {
-                item.Value = oldItem.Value;
-                item.NewValue = oldItem.Value;
-            }
+            item.Value = oldItem.Value;
+            item.NewValue = oldItem.Value;
         }
     }
 }

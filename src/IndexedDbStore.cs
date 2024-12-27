@@ -51,6 +51,7 @@ public class IndexedDbStore(
         DatabaseName = database.DatabaseName,
         StoreName = storeName,
         Version = database.Version,
+        StoreNames = [.. database.ObjectStoreNames],
     };
 
     /// <summary>

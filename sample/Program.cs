@@ -29,6 +29,7 @@ options.TypeInfoResolverChain.Add(ItemContext.Default.WithAddedModifier(static t
 builder.Services.AddIndexedDbService();
 builder.Services.AddIndexedDb(
     "Tavenem.Blazor.IndexedDB.Sample",
+    [Tavenem.Blazor.IndexedDB.Sample.Pages.Index.StoreName],
     1,
     options);
 

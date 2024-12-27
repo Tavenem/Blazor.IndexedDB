@@ -5,6 +5,7 @@ interface DatabaseInfo {
     storeName: string | undefined | null;
     version: number | undefined | null;
     keyPath: string | undefined | null;
+    storeNames: string[] | undefined | null;
 }
 
 interface CursorInfo {
@@ -25,10 +26,18 @@ async function openDatabase(databaseInfo: DatabaseInfo) {
             databaseInfo.databaseName,
             databaseInfo.version, {
                 upgrade(db) {
-                    const storeName = databaseInfo.storeName ?? databaseInfo.databaseName;
-                    if (!db.objectStoreNames.contains(storeName)) {
-                        db.createObjectStore(
-                            databaseInfo.storeName ?? databaseInfo.databaseName, {
+                    if (databaseInfo.storeNames) {
+                        for (const storeName of databaseInfo.storeNames) {
+                            if (!db.objectStoreNames.contains(storeName)) {
+                                db.createObjectStore(storeName, {
+                                    keyPath: databaseInfo.keyPath,
+                                });
+                            }
+                        }
+                    }
+                    if (db.objectStoreNames.length == 0
+                        && !db.objectStoreNames.contains(databaseInfo.databaseName)) {
+                        db.createObjectStore(databaseInfo.databaseName, {
                             keyPath: databaseInfo.keyPath,
                         });
                     }

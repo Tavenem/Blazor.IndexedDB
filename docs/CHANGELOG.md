@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0
+### Changed
+- Registration of all object stores is now required during database creation
+  - To add new stores during application lifetime, the database should be recreated with a new version number
+  - (see [https://github.com/Tavenem/Blazor.IndexedDB/issues/5](https://github.com/Tavenem/Blazor.IndexedDB/issues/5))
+
 ## 4.2
 ### Fixed
 - Does not create object store if it already exists

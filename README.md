@@ -23,8 +23,8 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
     // all options
     var db = new IndexedDb<int>(
         databaseName: "myDatabaseName",
-        version: 2,
-        storeName: "valueStore");
+        objectStores: ["valueStore"],
+        version: 2);
     ```
 
     This object can be a static instance, or you can construct instances dynamically as needed.
@@ -49,51 +49,62 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
         Id = "1",
         Value = "Hello, World!",
     };
+
+    var database = new IndexedDb<int>(
+        databaseName: "myDatabaseName",
+        objectStores: ["valueStore"],
+        version: 2);
+
+    var store = database["valueStore"];
     
-    await IndexedDbService.StoreItemAsync(item);
+    await store.StoreItemAsync(item);
     
     item.Value = "Goodbye!";
-    await IndexedDbService.StoreItemAsync(item);
+    await store.StoreItemAsync(item);
     
-    var fetchedItem = await IndexedDbService.GetItemAsync<Item>(item.Id);
+    var fetchedItem = await store.GetItemAsync<Item>(item.Id);
     // fetchedItem is an Item instance: item.Value = "Goodbye!"
     
-    await IndexedDbService.RemoveItemAsync(item);
+    await store.RemoveItemAsync(item);
     
-    fetchedItem = await IndexedDbService.GetItemAsync<Item>(item.Id);
+    fetchedItem = await store.GetItemAsync<Item>(item.Id);
     // fetchedItem is null
     ```
 
 1. Call the `Query<T>` method to obtain an `IDataStoreQueryable<T>`. `IDataStoreQueryable<T>` is similar to `IQueryable<T>`, and can be used to make queries against the data source.
 
     ```c#
-    await foreach (var item in IndexedDbService.Query().AsAsyncEnumerable())
+    await foreach (var item in store.Query().AsAsyncEnumerable())
     {
         Console.WriteLine(item.Value);
     }
 
-    var helloCount = await IndexedDbService
+    var helloCount = await store
         .Query()
         .Select(x => x.Value != null && x.Value.Contains("Hello"))
         .CountAsync();
     ```
 
-1. Call the `ClearAsync`, `CountAsync`, `DeleteDatabaseAsync`, and `GetAllAsync<T>` methods to work with the full database.
+1. Call the `ClearAsync`, `CountAsync`, and `GetAllAsync<T>` methods to work with the full object store.
 
     ```c#
-    await IndexedDbService.StoreItemAsync(item);
+    await store.StoreItemAsync(item);
     
-    var count = await IndexedDbService.CountAsync();
+    var count = await store.CountAsync();
     // count = 1
 
-    var items = await IndexedDbService.GetAllAsync<Item>();
+    var items = await store.GetAllAsync<Item>();
     // items is an array of Items with Length 1
 
-    await IndexedDbService.ClearAsync();
-    count = await IndexedDbService.CountAsync();
+    await store.ClearAsync();
+    count = await store.CountAsync();
     // count = 0
+    ```
 
-    await IndexedDbService.DeleteDatabaseAsync();
+1. Call the `DeleteDatabaseAsync` method to work with the full database.
+
+    ```c#
+    await database.DeleteDatabaseAsync();
     // the database has been removed (or will be, after all connections are closed)
     ```
 

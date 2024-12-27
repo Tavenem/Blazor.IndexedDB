@@ -9,6 +9,15 @@ namespace Tavenem.Blazor.IndexedDB;
 /// <param name="indexedDbService">
 /// An instance of <see cref="IndexedDbService"/> (typically provided by dependency injection).
 /// </param>
+/// <param name="objectStores">
+/// <para>
+/// The names of all object stores associated with the current database schema version.
+/// </para>
+/// <para>
+/// The name of the database itself will be used as the name of a single object store if no
+/// store names are provided.
+/// </para>
+/// </param>
 /// <param name="version">The version number of the current schema.</param>
 /// <param name="jsonSerializerOptions">
 /// A configured <see cref="JsonSerializerOptions"/> instance. Optional.
@@ -19,35 +28,41 @@ namespace Tavenem.Blazor.IndexedDB;
 /// href="https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase">https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase</a>
 /// </para>
 /// <para>
-/// Note: this class supports direct indexing to access the <see cref="ObjectStores"/> dictionary
-/// property. When getting a store by name on the <see cref="IndexedDb"/> object directly, if such a
-/// store does not yet exist, it is created and returned.
+/// Note: object stores cannot be added dynamically to an existing database. To add a new object
+/// store, re-create the database with the new store included, and assign it a greater version
+/// number than the previous registered version.
 /// </para>
 /// </remarks>
 public class IndexedDb(
     string databaseName,
     IndexedDbService indexedDbService,
+    IEnumerable<string>? objectStores = null,
     int? version = null,
     JsonSerializerOptions? jsonSerializerOptions = null)
 {
     /// <summary>
-    /// Provides direct access to the <see cref="ObjectStores"/> dictionary.
+    /// Retrieve an <see cref="IndexedDbStore"/> by its <see cref="IndexedDbStore.StoreName"/>.
     /// </summary>
-    /// <param name="name">The key to retrieve or set.</param>
-    /// <returns>An <see cref="IndexedDbStore"/> instance.</returns>
-    public IndexedDbStore this[string name]
+    /// <param name="name">The <see cref="IndexedDbStore.StoreName"/> to retrieve.</param>
+    /// <returns>
+    /// An <see cref="IndexedDbStore"/> instance; or <see langword="null"/> if there is no store
+    /// registered by that name.
+    /// </returns>
+    public IndexedDbStore? this[string name]
     {
         get
         {
             if (ObjectStores.TryGetValue(name, out var store))
             {
+                if (store is null)
+                {
+                    store = new(name, this);
+                    ObjectStores[name] = store;
+                }
                 return store;
             }
-            store = new(name, this);
-            ObjectStores[name] = store;
-            return store;
+            return null;
         }
-        set => ObjectStores[name] = value;
     }
 
     /// <summary>
@@ -56,20 +71,14 @@ public class IndexedDb(
     public string DatabaseName { get; } = databaseName;
 
     /// <summary>
+    /// The names of all object stores associated with the current database schema version.
+    /// </summary>
+    public virtual IEnumerable<string> ObjectStoreNames => ObjectStores.Keys;
+
+    /// <summary>
     /// A configured <see cref="JsonSerializerOptions"/> instance. Optional.
     /// </summary>
     public JsonSerializerOptions? JsonSerializerOptions { get; set; } = jsonSerializerOptions;
-
-    /// <summary>
-    /// The collection of object stores associated with the current database.
-    /// </summary>
-    /// <remarks>
-    /// Note: this dictionary can be accessed using index notation on the parent <see
-    /// cref="IndexedDb"/> class object itself. When getting a store by name on the <see
-    /// cref="IndexedDb"/> object directly, if such a store does not yet exist, it is created and
-    /// returned.
-    /// </remarks>
-    public Dictionary<string, IndexedDbStore> ObjectStores { get; } = [];
 
     /// <summary>
     /// An instance of <see cref="IndexedDbService"/>.
@@ -101,18 +110,17 @@ public class IndexedDb(
     public int? Version { get; } = version;
 
     /// <summary>
-    /// Adds a new object store.
+    /// The collection of object stores associated with the current database.
     /// </summary>
-    /// <param name="name">The name of the store to add.</param>
-    /// <returns>
-    /// The newly created object store.
-    /// </returns>
-    public IndexedDbStore AddStore(string name)
-    {
-        var store = new IndexedDbStore(name, this);
-        ObjectStores.Add(name, store);
-        return store;
-    }
+    /// <remarks>
+    /// Note: this dictionary can be accessed using index notation on the parent <see
+    /// cref="IndexedDb"/> class object itself. When getting a store by name on the <see
+    /// cref="IndexedDb"/> object directly, if such a store does not yet exist, it is created and
+    /// returned.
+    /// </remarks>
+    internal Dictionary<string, IndexedDbStore?> ObjectStores { get; }
+        = objectStores?.ToDictionary(x => x, x => (IndexedDbStore?)null)
+        ?? new Dictionary<string, IndexedDbStore?>([new KeyValuePair<string, IndexedDbStore?>(databaseName, null)]);
 
     /// <summary>
     /// Deletes the database.
