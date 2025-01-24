@@ -157,6 +157,7 @@ export async function getBatch(databaseInfo: DatabaseInfo, reset: boolean) {
     } catch (e) {
         console.error(e);
     }
+    cursors[cursorKey] = cursorInfo;
     return items;
 }
 
@@ -193,6 +194,7 @@ export async function getBatchStrings(databaseInfo: DatabaseInfo, reset: boolean
     } catch (e) {
         console.error(e);
     }
+    cursors[cursorKey] = cursorInfo;
     return items;
 }
 

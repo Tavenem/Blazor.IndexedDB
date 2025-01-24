@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.1
+### Fixed
+- Loop when fetching more than 20 items
+
 ## 5.0
 ### Changed
 - Registration of all object stores is now required during database creation
