@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Components;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Tavenem.Blazor.IndexedDB.Sample.Pages;
 
@@ -17,7 +16,7 @@ public partial class Index
 
     private List<Item> FilteredItems { get; set; } = [];
 
-    [NotNull, Inject(Key = "Tavenem.Blazor.IndexedDB.Sample")] private IndexedDb? IndexedDb { get; set; }
+    [Inject(Key = "Tavenem.Blazor.IndexedDB.Sample")] private IndexedDb IndexedDb { get; set; } = default!;
 
     private bool IsLoading { get; set; }
 

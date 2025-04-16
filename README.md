@@ -14,28 +14,44 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
 
 ## Use
 
-1. Construct an `IndexedDb` object to define the characteristics of your database.
+1. Register the `IndexedDbService` with dependency injection.
+
+    ```c#
+    builder.Services.AddIndexedDbService();
+    ```
+
+1. Register one or more `IndexedDb` instances with dependency injection.
 
     ```c#
     // simple
-    var db = new IndexedDb("myDatabaseName", 1);
+    builder.Services.AddIndexedDb("myDatabaseName");
     
     // all options
-    var db = new IndexedDb<int>(
-        databaseName: "myDatabaseName",
-        objectStores: ["valueStore"],
-        version: 2);
+    builder.Services.AddIndexedDb(
+        databaseName: "myDatabaseName", // the database name
+        objectStores: ["valueStore"], // the names of value stores
+        version: 2, // the version number of the current database schema
+        jsonSerializerOptions: options); // a JsonSerializerOptions instance
     ```
 
-    This object can be a static instance, or you can construct instances dynamically as needed.
+    Note that use of dependency injection for database instances is optional. They can also be
+    initialized on demand with their public constructor, which requires an instance of
+    `IndexedDbService`.
 
-1. Call `AddIndexedDb(db)` with an `IndexedDb` instance, or `AddIndexedDb(provider => GetMyDatabase())` with a function that supplies one through dependency injection.
+1. Inject an `IndexedDb` instance in a component.
+    ```c#
+    [Inject(Key = "myDatabaseName")] private IndexedDb MyDatabase { get; set; } = default!;
+    ```
 
-   Optional: you may also supply a customized instance of `JsonSerializerOptions` to control the serialization of your data items. If you do not choose to do so, the default Blazor options will be used, which are sufficient for most POCO objects, and optimizes the interop with the JavaScript layer.
+    Note that the `@inject` directive does not currently support keyed services.
 
-1. Inject the `IndexedDbService` instance in a component.
+1. Retrieve an `IndexedDbStore` instance by name.
 
-1. Call the `StoreItemAsync<T>`, `GetItemAsync<T>`, and `RemoveItemAsync<T>` methods to work with strongly-typed data items.
+    ```c#
+    var store = MyDatabase["valueStore"];
+    ```
+
+1. Call the `StoreItemAsync<T>`, `GetItemAsync<T>`, and `RemoveItemAsync<T>` methods on an `IndexedDbStore` to work with strongly-typed data items.
 
     ```c#
     class Item : IIdItem
@@ -49,13 +65,6 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
         Id = "1",
         Value = "Hello, World!",
     };
-
-    var database = new IndexedDb<int>(
-        databaseName: "myDatabaseName",
-        objectStores: ["valueStore"],
-        version: 2);
-
-    var store = database["valueStore"];
     
     await store.StoreItemAsync(item);
     
@@ -63,7 +72,7 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
     await store.StoreItemAsync(item);
     
     var fetchedItem = await store.GetItemAsync<Item>(item.Id);
-    // fetchedItem is an Item instance: item.Value = "Goodbye!"
+    // fetchedItem is an Item instance: item.Value == "Goodbye!"
     
     await store.RemoveItemAsync(item);
     
@@ -74,13 +83,13 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
 1. Call the `Query<T>` method to obtain an `IDataStoreQueryable<T>`. `IDataStoreQueryable<T>` is similar to `IQueryable<T>`, and can be used to make queries against the data source.
 
     ```c#
-    await foreach (var item in store.Query().AsAsyncEnumerable())
+    await foreach (var item in store.Query<Item>().AsAsyncEnumerable())
     {
         Console.WriteLine(item.Value);
     }
 
     var helloCount = await store
-        .Query()
+        .Query<Item>()
         .Select(x => x.Value != null && x.Value.Contains("Hello"))
         .CountAsync();
     ```
@@ -101,10 +110,10 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
     // count = 0
     ```
 
-1. Call the `DeleteDatabaseAsync` method to work with the full database.
+1. Call the `DeleteDatabaseAsync` method on the `IndexedDb` instance to remove the entire database.
 
     ```c#
-    await database.DeleteDatabaseAsync();
+    await MyDatabase.DeleteDatabaseAsync();
     // the database has been removed (or will be, after all connections are closed)
     ```
 
