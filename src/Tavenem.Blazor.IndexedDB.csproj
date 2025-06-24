@@ -60,7 +60,7 @@
     <ClientAssetsRestoreOutputs>$(ClientAssetsDirectory)node_modules\.package-lock.json</ClientAssetsRestoreOutputs>
 
     <!-- Run restore only once for multi targeting builds -->
-    <ClientAssetsRestoreBeforeTargets Condition="'$(TargetFramework)' == 'net9.0'">DispatchToInnerBuilds</ClientAssetsRestoreBeforeTargets>
+    <ClientAssetsRestoreBeforeTargets Condition="'$(TargetFramework)' == 'net8.0'">DispatchToInnerBuilds</ClientAssetsRestoreBeforeTargets>
   </PropertyGroup>
 
   <ItemGroup>
