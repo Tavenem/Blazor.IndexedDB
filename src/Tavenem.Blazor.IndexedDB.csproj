@@ -24,6 +24,11 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- Disabled pending fix of https://github.com/dotnet/aspnetcore/issues/59291 -->
+    <CompressionEnabled>false</CompressionEnabled>
+  </PropertyGroup>
+
   <ItemGroup>
     <SupportedPlatform Include="browser" />
     <Content Update="assets\**" Pack="false">
@@ -38,11 +43,11 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.17" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.6" />
   </ItemGroup>
 
   <PropertyGroup>

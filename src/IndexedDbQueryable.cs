@@ -1,4 +1,6 @@
-﻿using System.Linq.Expressions;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
+using System.Runtime.Versioning;
 using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
 
@@ -7,8 +9,15 @@ namespace Tavenem.Blazor.IndexedDB;
 /// <summary>
 /// Provides LINQ operations on an <see cref="IndexedDbService"/>.
 /// </summary>
+/// <remarks>
+/// Note: this class does not implement the synchronous methods of <see cref="IDataStore"/>.
+/// Synchronous access to an IDBObjectStore from Blazor is not supported. Always use the equivalent
+/// asynchronous methods.
+/// </remarks>
 public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
 {
+    private const string SyncNotSupportedMessage = "This method is not supported by this library. Please use the async version of this method.";
+
     private protected readonly Expression<Func<T, bool>>? _conditionalExpression;
     private readonly IndexedDbStore? _store;
     private protected readonly int _skip = 0;
@@ -67,33 +76,21 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         _typeInfo = typeInfo;
     }
 
-    /// <summary>
-    /// Determines whether this <see cref="IDataStoreQueryable{T}" /> contains any elements.
-    /// </summary>
-    /// <returns>
-    /// <see langword="true" /> if the source sequence contains any elements; otherwise, <see
-    /// langword="false" />.
-    /// </returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="AnyAsync()"/>. Always use that method instead to avoid
-    /// issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public bool Any() => AnyAsync().GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public bool Any() => throw new NotImplementedException(SyncNotSupportedMessage);
 
-    /// <summary>
-    /// Determines whether any element of this <see cref="IDataStoreQueryable{T}" /> satisfies a
-    /// condition.
-    /// </summary>
-    /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <returns>
-    /// <see langword="true" /> if any elements in the source sequence pass the test in the
-    /// specified predicate; otherwise, <see langword="false" />.
-    /// </returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="AnyAsync(Expression{Func{T, bool}})"/>. Always use that
-    /// method instead to avoid issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public bool Any(Expression<Func<T, bool>> predicate) => AnyAsync(predicate).GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public bool Any(Expression<Func<T, bool>> predicate) => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <inheritdoc/>
     public async Task<bool> AnyAsync()
@@ -135,28 +132,21 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
     /// <inheritdoc/>
     public IAsyncEnumerable<T> AsAsyncEnumerable() => IterateSourceAsync();
 
-    /// <summary>
-    /// Enumerates the results of this <see cref="IDataStoreQueryable{T}" />.
-    /// </summary>
-    /// <returns>An <see cref="IEnumerable{T}" />.</returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on an asynchronous interop call. Always use <see
-    /// cref="AsAsyncEnumerable"/> instead to avoid issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public IEnumerable<T> AsEnumerable() => IterateSource();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public IEnumerable<T> AsEnumerable() => throw new NotImplementedException(SyncNotSupportedMessage);
 
-    /// <summary>
-    /// Returns the number of elements in this <see cref="IDataStoreQueryable{T}" />.
-    /// </summary>
-    /// <returns>The number of elements in this <see cref="IDataStoreQueryable{T}" />.</returns>
-    /// <exception cref="OverflowException">
-    /// The number of elements in source is larger than <see cref="F:System.Int32.MaxValue" />.
-    /// </exception>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="CountAsync"/>. Always use that method instead to avoid
-    /// issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public int Count() => CountAsync().GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public int Count() => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <inheritdoc/>
     public async Task<int> CountAsync()
@@ -169,36 +159,21 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         return count;
     }
 
-    /// <summary>
-    /// Returns the first element of this <see cref="IDataStoreQueryable{T}" />, or a default value
-    /// if the sequence contains no elements.
-    /// </summary>
-    /// <returns>
-    /// The first element in this <see cref="IDataStoreQueryable{T}" />, or a default value if the
-    /// sequence contains no elements.
-    /// </returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="FirstOrDefaultAsync()"/>. Always use that method instead to
-    /// avoid issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public T? FirstOrDefault() => FirstOrDefaultAsync().GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public T? FirstOrDefault() => throw new NotImplementedException(SyncNotSupportedMessage);
 
-    /// <summary>
-    /// Returns the first element of this <see cref="IDataStoreQueryable{T}" /> that satisfies a
-    /// specified condition or a default value if no such element is found.
-    /// </summary>
-    /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <returns>
-    /// default(TSource) if this <see cref="IDataStoreQueryable{T}" /> is empty or if no element
-    /// passes the test specified by <paramref name="predicate" />; otherwise, the first element in
-    /// source that passes the test specified by <paramref name="predicate" />.
-    /// </returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="FirstOrDefaultAsync(Expression{Func{T, bool}})"/>. Always
-    /// use that method instead to avoid issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public T? FirstOrDefault(Expression<Func<T, bool>> predicate)
-        => FirstOrDefaultAsync(predicate).GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public T? FirstOrDefault(Expression<Func<T, bool>> predicate) => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <inheritdoc/>
     public async Task<T?> FirstOrDefaultAsync()
@@ -237,22 +212,13 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         return default;
     }
 
-    /// <summary>
-    /// Gets a number of items from this <see cref="IDataStoreQueryable{T}" /> equal to <paramref
-    /// name="pageSize" />, after skipping <paramref name="pageNumber" />-1 multiples of that
-    /// amount.
-    /// </summary>
-    /// <param name="pageNumber">The current page number.</param>
-    /// <param name="pageSize">The page size.</param>
-    /// <returns>
-    /// An <see cref="IPagedList{T}" /> of items from this <see cref="IDataStoreQueryable{T}" />.
-    /// </returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="GetPageAsync(int, int)"/>. Always use that method instead
-    /// to avoid issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public IPagedList<T> GetPage(int pageNumber, int pageSize)
-        => GetPageAsync(pageNumber, pageSize).GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public IPagedList<T> GetPage(int pageNumber, int pageSize) => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <inheritdoc/>
     public async Task<IPagedList<T>> GetPageAsync(int pageNumber, int pageSize)
@@ -275,15 +241,13 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         return new PagedList<T>(list, pageNumber, pageSize, total);
     }
 
-    /// <summary>
-    /// Returns the maximum value of this <see cref="IDataStoreQueryable{T}" />.
-    /// </summary>
-    /// <returns>The maximum value of this <see cref="IDataStoreQueryable{T}" />.</returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="MaxAsync"/>. Always use that method instead to avoid
-    /// issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public T? Max() => MaxAsync().GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public T? Max() => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <inheritdoc/>
     public async Task<T?> MaxAsync()
@@ -300,15 +264,13 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         return max;
     }
 
-    /// <summary>
-    /// Returns the minimum value of this <see cref="IDataStoreQueryable{T}" />.
-    /// </summary>
-    /// <returns>The minimum value of this <see cref="IDataStoreQueryable{T}" />.</returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="MinAsync"/>. Always use that method instead to avoid
-    /// issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public T? Min() => MinAsync().GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public T? Min() => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <inheritdoc/>
     public async Task<T?> MinAsync()
@@ -434,16 +396,13 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
         count,
         _typeInfo);
 
-    /// <summary>
-    /// Enumerates the results of this <see cref="IDataStoreQueryable{T}" /> and returns them as
-    /// a <see cref="IReadOnlyList{T}" />.
-    /// </summary>
-    /// <returns>A <see cref="IReadOnlyList{T}" />.</returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This method blocks on <see cref="ToListAsync"/>. Always use that method instead to avoid
-    /// issues.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
-    public IReadOnlyList<T> ToList() => ToListAsync().GetAwaiter().GetResult();
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    public IReadOnlyList<T> ToList() => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<T>> ToListAsync()
@@ -494,52 +453,6 @@ public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
             _conditionalExpression,
             newExpression),
             _conditionalExpression.Parameters[0]);
-    }
-
-    internal virtual IEnumerable<T> IterateSource()
-    {
-        if (_store is null)
-        {
-            yield break;
-        }
-        var condition = _conditionalExpression?.Compile();
-        var reset = true;
-        var count = 0;
-        while (true)
-        {
-            var batchCount = 0;
-            var enumerator = _store
-                .GetBatchAsync(reset, _typeInfo)
-                .GetAsyncEnumerator();
-            while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
-            {
-                batchCount++;
-                if (condition?.Invoke(enumerator.Current) == false)
-                {
-                    continue;
-                }
-                count++;
-                if (count <= _skip)
-                {
-                    continue;
-                }
-                yield return enumerator.Current;
-                if (_take >= 0 && count >= _take)
-                {
-                    break;
-                }
-            }
-            if (batchCount == 0)
-            {
-                break;
-            }
-            if ((_take >= 0 && count >= _take)
-                || batchCount < 20)
-            {
-                break;
-            }
-            reset = false;
-        }
     }
 
     internal virtual async IAsyncEnumerable<T> IterateSourceAsync()

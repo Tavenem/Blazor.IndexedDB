@@ -74,34 +74,6 @@ public sealed class OrderedIndexedDbQueryable<T, TKey> : IndexedDbQueryable<T>, 
         _skip,
         _take);
 
-    internal override IEnumerable<T> IterateSource()
-    {
-        var selector = _keySelector.Compile();
-        var list = new List<T>();
-        var condition = _conditionalExpression?.Compile();
-        var count = 0;
-        foreach (var item in _innerQueryable.IterateSource())
-        {
-            if (condition?.Invoke(item) == false)
-            {
-                continue;
-            }
-            count++;
-            if (count <= _skip)
-            {
-                continue;
-            }
-            list.Add(item);
-            if (_take >= 0 && count >= _take)
-            {
-                break;
-            }
-        }
-        return _descending
-            ? list.OrderByDescending(selector)
-            : list.OrderBy(selector);
-    }
-
     internal override async IAsyncEnumerable<T> IterateSourceAsync()
     {
         var selector = _keySelector.Compile();

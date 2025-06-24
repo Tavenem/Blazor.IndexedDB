@@ -80,42 +80,9 @@ internal sealed class SelectedIndexedDbQueryable<T, U> : IndexedDbQueryable<T>
         _skip,
         _take);
 
-    internal override IEnumerable<T> IterateSource() => _selectManyExpression is not null
-        ? IterateSourceMultiple()
-        : IterateSourceSingle();
-
     internal override IAsyncEnumerable<T> IterateSourceAsync() => _selectManyExpression is not null
         ? IterateSourceMultipleAsync()
         : IterateSourceSingleAsync();
-
-    private IEnumerable<T> IterateSourceSingle()
-    {
-        var select = _selectExpression?.Compile();
-        if (select is null)
-        {
-            yield break;
-        }
-        var condition = _conditionalExpression?.Compile();
-        var count = 0;
-        foreach (var item in _innerQueryable.IterateSource())
-        {
-            var selected = select.Invoke(item);
-            if (condition?.Invoke(selected) == false)
-            {
-                continue;
-            }
-            count++;
-            if (count <= _skip)
-            {
-                continue;
-            }
-            yield return selected;
-            if (_take >= 0 && count >= _take)
-            {
-                break;
-            }
-        }
-    }
 
     private async IAsyncEnumerable<T> IterateSourceSingleAsync()
     {
@@ -142,38 +109,6 @@ internal sealed class SelectedIndexedDbQueryable<T, U> : IndexedDbQueryable<T>
             if (_take >= 0 && count >= _take)
             {
                 break;
-            }
-        }
-    }
-
-    private IEnumerable<T> IterateSourceMultiple()
-    {
-        var select = _selectManyExpression?.Compile();
-        if (select is null)
-        {
-            yield break;
-        }
-        var condition = _conditionalExpression?.Compile();
-        var count = 0;
-        foreach (var item in _innerQueryable.IterateSource())
-        {
-            var collection = select.Invoke(item);
-            foreach (var child in collection)
-            {
-                if (condition?.Invoke(child) == false)
-                {
-                    continue;
-                }
-                count++;
-                if (count <= _skip)
-                {
-                    continue;
-                }
-                yield return child;
-                if (_take >= 0 && count >= _take)
-                {
-                    break;
-                }
             }
         }
     }

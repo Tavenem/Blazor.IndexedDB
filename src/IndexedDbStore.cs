@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization.Metadata;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Versioning;
+using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
 
 namespace Tavenem.Blazor.IndexedDB;
@@ -13,13 +15,22 @@ namespace Tavenem.Blazor.IndexedDB;
 /// The <see cref="IndexedDb"/> in which this store resides.
 /// </param>
 /// <remarks>
+/// <para>
 /// See <a
 /// href="https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore">https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore</a>
+/// </para>
+/// <para>
+/// Note: this class does not implement the synchronous methods of <see cref="IDataStore"/>.
+/// Synchronous access to an IDBObjectStore from Blazor is not supported. Always use the equivalent
+/// asynchronous methods.
+/// </para>
 /// </remarks>
 public class IndexedDbStore(
     string storeName,
     IndexedDb database) : IDataStore, IAsyncDisposable
 {
+    private const string SyncNotSupportedMessage = "This method is not supported by this library. Please use the async version of this method.";
+
     private bool _disposed;
 
     /// <summary>
@@ -154,51 +165,17 @@ public class IndexedDbStore(
     public IAsyncEnumerable<TValue> GetBatchAsync<TValue>(bool reset = false, JsonTypeInfo<TValue>? typeInfo = null)
         => Database.Service.GetBatchAsync(this, reset, typeInfo);
 
-    /// <summary>
-    /// Gets the <see cref="IIdItem"/> with the given <paramref name="id"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of <see cref="IIdItem"/> to retrieve.</typeparam>
-    /// <param name="id">The unique id of the item to retrieve.</param>
-    /// <returns>
-    /// The item with the given id, or <see langword="null"/> if no item was found with that id.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// This wraps <see cref="GetItemAsync{T}(string?)"/> in a <see cref="Task"/> and blocks on the
-    /// result. Always use <see cref="GetItemAsync{T}(string?)"/> when possible.
-    /// </para>
-    /// <para>
-    /// Note: this overload will typically fail in the browser (or whenever trimming is enabled),
-    /// since it relies on reflection-based (de)serialization. To use source generated
-    /// deserialization, use the overload which takes a <see cref="JsonTypeInfo{T}"/>.
-    /// </para>
-    /// </remarks>
-    public T? GetItem<T>(string? id)
-        => GetItemAsync<T>(id).AsTask().GetAwaiter().GetResult();
+    /// <inheritdoc/>
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    T? IDataStore.GetItem<T>(string? id, TimeSpan? cacheTimeout) where T : class
+        => throw new NotImplementedException(SyncNotSupportedMessage);
 
-    T? IDataStore.GetItem<T>(string? id, TimeSpan? cacheTimeout) where T : class => GetItem<T>(id);
-
-    /// <summary>
-    /// Gets the <see cref="IIdItem"/> with the given <paramref name="id"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of <see cref="IIdItem"/> to retrieve.</typeparam>
-    /// <param name="id">The unique id of the item to retrieve.</param>
-    /// <param name="typeInfo">
-    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
-    /// </param>
-    /// <returns>
-    /// The item with the given id, or <see langword="null"/> if no item was found with that id.
-    /// </returns>
-    /// <remarks>
-    /// This wraps <see cref="GetItemAsync{T}(string?, JsonTypeInfo{T}?)"/> in a <see cref="Task"/>
-    /// and blocks on the result. Always use <see cref="GetItemAsync{T}(string?,
-    /// JsonTypeInfo{T}?)"/> when possible.
-    /// </remarks>
-    public T? GetItem<T>(string? id, JsonTypeInfo<T>? typeInfo)
-        => GetItemAsync<T>(id, typeInfo).AsTask().GetAwaiter().GetResult();
-
+    /// <inheritdoc/>
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
     T? IDataStore.GetItem<T>(string? id, JsonTypeInfo<T>? typeInfo, TimeSpan? cacheTimeout) where T : class
-        => GetItem<T>(id, typeInfo);
+        => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <summary>
     /// Gets the <see cref="IIdItem"/> with the given <paramref name="id"/>.
@@ -243,54 +220,20 @@ public class IndexedDbStore(
 
     IDataStoreQueryable<T> IDataStore.Query<T>(JsonTypeInfo<T>? typeInfo) => Query(typeInfo);
 
-    /// <summary>
-    /// Removes the stored item with the given id.
-    /// </summary>
-    /// <param name="id">
-    /// <para>
-    /// The id of the item to remove.
-    /// </para>
-    /// <para>
-    /// If <see langword="null"/> or empty no operation takes place, and <see langword="true"/> is
-    /// returned to indicate that there was no failure.
-    /// </para>
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully removed; otherwise <see
-    /// langword="false"/>.
-    /// </returns>
-    /// <remarks>
-    /// This blocks on the result of <see cref="RemoveItemAsync(string?)"/>. Always use <see
-    /// cref="RemoveItemAsync(string?)"/> when possible.
-    /// </remarks>
-    public bool RemoveItem(string? id)
-        => RemoveItemAsync(id).GetAwaiter().GetResult();
+    /// <inheritdoc/>
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
+    bool IDataStore.RemoveItem<T>(string? id)
+        => throw new NotImplementedException(SyncNotSupportedMessage);
 
-    bool IDataStore.RemoveItem<T>(string? id) => RemoveItem(id);
-
-    /// <summary>
-    /// Removes the given stored item.
-    /// </summary>
-    /// <typeparam name="T">The type of items to remove.</typeparam>
-    /// <param name="item">
-    /// <para>
-    /// The item to remove.
-    /// </para>
-    /// <para>
-    /// If <see langword="null"/> or empty no operation takes place, and <see langword="true"/> is
-    /// returned to indicate that there was no failure.
-    /// </para>
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully removed, or did not exist; otherwise
-    /// <see langword="false"/>.
-    /// </returns>
+    /// <inheritdoc/>
     /// <remarks>
-    /// This blocks on the result of <see cref="RemoveItemAsync{T}(T)"/>. Always use <see
-    /// cref="RemoveItemAsync{T}(T)"/> when possible.
+    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
     /// </remarks>
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
     public bool RemoveItem<T>(T? item) where T : class, IIdItem
-        => RemoveItem(item?.Id);
+        => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <summary>
     /// Removes the stored item with the given id.
@@ -316,58 +259,6 @@ public class IndexedDbStore(
     /// <inheritdoc/>
     public Task<bool> RemoveItemAsync<T>(T? item) where T : class, IIdItem
         => RemoveItemAsync(item?.Id);
-
-    /// <summary>
-    /// Upserts the given <paramref name="item"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of object to upsert.</typeparam>
-    /// <param name="item">The item to store.</param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
-    /// <see langword="false"/>.
-    /// </returns>
-    /// <remarks>
-    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
-    /// indicate that the operation did not fail (even though no storage operation took place,
-    /// neither did any failure).
-    /// </remarks>
-    /// <remarks>
-    /// <para>
-    /// This blocks on the result of <see cref="StoreAsync{T}(T)"/>. Always use <see
-    /// cref="StoreAsync{T}(T)"/> when possible.
-    /// </para>
-    /// <para>
-    /// Note: this overload will typically fail in the browser (or whenever trimming is enabled),
-    /// since it relies on reflection-based (de)serialization. To use source generated
-    /// deserialization, use the overload which takes a <see cref="JsonTypeInfo{T}"/>.
-    /// </para>
-    /// </remarks>
-    public bool Store<T>(T? item) where T : class
-        => StoreAsync(item).GetAwaiter().GetResult();
-
-    /// <summary>
-    /// Upserts the given <paramref name="item"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of object to upsert.</typeparam>
-    /// <param name="item">The item to store.</param>
-    /// <param name="typeInfo">
-    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
-    /// <see langword="false"/>.
-    /// </returns>
-    /// <remarks>
-    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
-    /// indicate that the operation did not fail (even though no storage operation took place,
-    /// neither did any failure).
-    /// </remarks>
-    /// <remarks>
-    /// This blocks on the result of <see cref="StoreAsync{T}(T)"/>. Always use <see
-    /// cref="StoreAsync{T}(T, JsonTypeInfo{T}?)"/> when possible.
-    /// </remarks>
-    public bool Store<T>(T? item, JsonTypeInfo<T>? typeInfo) where T : class
-        => StoreAsync(item, typeInfo).GetAwaiter().GetResult();
 
     /// <summary>
     /// Upserts the given <paramref name="item"/>.
@@ -420,63 +311,17 @@ public class IndexedDbStore(
     public async Task<bool> StoreAsync<T>(T? item, JsonTypeInfo<T>? typeInfo) where T : class
         => item is null || await Database.Service.StoreAsync<T>(this, item, typeInfo);
 
-    /// <summary>
-    /// Upserts the given <paramref name="item"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of <see cref="IIdItem"/> to upsert.</typeparam>
-    /// <param name="item">The item to store.</param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
-    /// <see langword="false"/>.
-    /// </returns>
-    /// <remarks>
-    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
-    /// indicate that the operation did not fail (even though no storage operation took place,
-    /// neither did any failure).
-    /// </remarks>
-    /// <remarks>
-    /// <para>
-    /// This blocks on the result of <see cref="StoreItemAsync{T}(T)"/>. Always use <see
-    /// cref="StoreItemAsync{T}(T)"/> when possible.
-    /// </para>
-    /// <para>
-    /// Note: this overload will typically fail in the browser (or whenever trimming is enabled),
-    /// since it relies on reflection-based (de)serialization. To use source generated
-    /// deserialization, use the overload which takes a <see cref="JsonTypeInfo{T}"/>.
-    /// </para>
-    /// </remarks>
-    public bool StoreItem<T>(T? item) where T : class, IIdItem
-        => StoreItemAsync(item).GetAwaiter().GetResult();
-
+    /// <inheritdoc/>
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
     bool IDataStore.StoreItem<T>(T? item, TimeSpan? cacheTimeout) where T : class
-        => StoreItem(item);
+        => throw new NotImplementedException(SyncNotSupportedMessage);
 
-    /// <summary>
-    /// Upserts the given <paramref name="item"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of <see cref="IIdItem"/> to upsert.</typeparam>
-    /// <param name="item">The item to store.</param>
-    /// <param name="typeInfo">
-    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
-    /// <see langword="false"/>.
-    /// </returns>
-    /// <remarks>
-    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
-    /// indicate that the operation did not fail (even though no storage operation took place,
-    /// neither did any failure).
-    /// </remarks>
-    /// <remarks>
-    /// This blocks on the result of <see cref="StoreItemAsync{T}(T)"/>. Always use <see
-    /// cref="StoreItemAsync{T}(T, JsonTypeInfo{T}?)"/> when possible.
-    /// </remarks>
-    public bool StoreItem<T>(T? item, JsonTypeInfo<T>? typeInfo) where T : class, IIdItem
-        => StoreItemAsync(item, typeInfo).GetAwaiter().GetResult();
-
+    /// <inheritdoc/>
+    /// <exception cref="NotImplementedException" />
+    [DoesNotReturn, UnsupportedOSPlatform("browser")]
     bool IDataStore.StoreItem<T>(T? item, JsonTypeInfo<T>? typeInfo, TimeSpan? cacheTimeout) where T : class
-        => StoreItem(item);
+        => throw new NotImplementedException(SyncNotSupportedMessage);
 
     /// <summary>
     /// Upserts the given <paramref name="item"/>.

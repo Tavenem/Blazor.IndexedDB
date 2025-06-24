@@ -74,36 +74,6 @@ internal sealed class ManySelectedIndexedDbQueryable<T, TCollection, U> : Indexe
         _skip,
         _take);
 
-    internal override IEnumerable<T> IterateSource()
-    {
-        var collectionSelector = _collectionSelector.Compile();
-        var resultSelector = _resultSelector.Compile();
-        var condition = _conditionalExpression?.Compile();
-        var count = 0;
-        foreach (var item in _innerQueryable.IterateSource())
-        {
-            var collection = collectionSelector.Invoke(item);
-            foreach (var child in collection)
-            {
-                var result = resultSelector.Invoke(item, child);
-                if (condition?.Invoke(result) == false)
-                {
-                    continue;
-                }
-                count++;
-                if (count <= _skip)
-                {
-                    continue;
-                }
-                yield return result;
-                if (_take >= 0 && count >= _take)
-                {
-                    break;
-                }
-            }
-        }
-    }
-
     internal override async IAsyncEnumerable<T> IterateSourceAsync()
     {
         var collectionSelector = _collectionSelector.Compile();
