@@ -128,6 +128,21 @@ export async function getBatch(databaseInfo, reset) {
             console.error(e);
         }
     }
+    else {
+        try {
+            cursorInfo.cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
+            if (cursorInfo.cursor && cursorInfo.key) {
+                cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
+                if (cursorInfo.cursor) {
+                    cursorInfo.cursor = await cursorInfo.cursor.continue();
+                    cursorInfo.key = cursorInfo.cursor?.key;
+                }
+            }
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
     if (!cursorInfo) {
         return [];
     }
@@ -136,6 +151,7 @@ export async function getBatch(databaseInfo, reset) {
         while (cursorInfo.cursor && items.length < 20) {
             items.push(cursorInfo.cursor.value);
             cursorInfo.cursor = await cursorInfo.cursor.continue();
+            cursorInfo.key = cursorInfo.cursor?.key;
         }
     }
     catch (e) {
@@ -166,6 +182,21 @@ export async function getBatchStrings(databaseInfo, reset) {
             console.error(e);
         }
     }
+    else {
+        try {
+            cursorInfo.cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
+            if (cursorInfo.cursor && cursorInfo.key) {
+                cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
+                if (cursorInfo.cursor) {
+                    cursorInfo.cursor = await cursorInfo.cursor.continue();
+                    cursorInfo.key = cursorInfo.cursor?.key;
+                }
+            }
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
     if (!cursorInfo) {
         return [];
     }
@@ -174,6 +205,7 @@ export async function getBatchStrings(databaseInfo, reset) {
         while (cursorInfo.cursor && items.length < 20) {
             items.push(JSON.stringify(cursorInfo.cursor.value));
             cursorInfo.cursor = await cursorInfo.cursor.continue();
+            cursorInfo.key = cursorInfo.cursor?.key;
         }
     }
     catch (e) {

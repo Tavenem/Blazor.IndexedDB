@@ -3,9 +3,9 @@
   "name": "tavenemblazorindexeddb",
   "private": true,
   "devDependencies": {
-    "esbuild": "0.24.2",
-    "idb": "8.0.1",
-    "typescript": "5.7.2"
+    "esbuild": "0.25.8",
+    "idb": "8.0.3",
+    "typescript": "5.8.3"
   },
   "scripts": {
     "build": "node esbuild_config.mjs"
