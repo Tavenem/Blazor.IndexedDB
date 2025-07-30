@@ -20,7 +20,7 @@ async function openDatabase(databaseInfo: DatabaseInfo) {
     if (databaseInfo.version === null) {
         databaseInfo.version = undefined;
     }
-    databaseInfo.keyPath ??= 'id';
+    databaseInfo.keyPath ??= 'Id';
 
     try {
         const database = await openDB(
