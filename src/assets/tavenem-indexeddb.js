@@ -133,23 +133,14 @@ export async function getBatch(databaseInfo, reset) {
             cursorInfo.cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
             if (cursorInfo.cursor && cursorInfo.key) {
                 cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
-                if (cursorInfo.cursor) {
-                    cursorInfo.cursor = await cursorInfo.cursor.continue();
-                    if (cursorInfo.cursor) {
-                        cursorInfo.key = cursorInfo.cursor.key;
-                    }
-                    else {
-                        delete cursors[cursorKey];
-                        return [];
-                    }
-                }
             }
         }
         catch (e) {
             console.error(e);
         }
     }
-    if (!cursorInfo) {
+    if (!cursorInfo || !cursorInfo.cursor) {
+        delete cursors[cursorKey];
         return [];
     }
     const items = [];
@@ -157,7 +148,13 @@ export async function getBatch(databaseInfo, reset) {
         while (cursorInfo.cursor && items.length < 20) {
             items.push(cursorInfo.cursor.value);
             cursorInfo.cursor = await cursorInfo.cursor.continue();
-            cursorInfo.key = cursorInfo.cursor?.key;
+            if (cursorInfo.cursor) {
+                cursorInfo.key = cursorInfo.cursor.key;
+            }
+            else {
+                delete cursors[cursorKey];
+                return items;
+            }
         }
     }
     catch (e) {
@@ -193,23 +190,14 @@ export async function getBatchStrings(databaseInfo, reset) {
             cursorInfo.cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
             if (cursorInfo.cursor && cursorInfo.key) {
                 cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
-                if (cursorInfo.cursor) {
-                    cursorInfo.cursor = await cursorInfo.cursor.continue();
-                    if (cursorInfo.cursor) {
-                        cursorInfo.key = cursorInfo.cursor.key;
-                    }
-                    else {
-                        delete cursors[cursorKey];
-                        return [];
-                    }
-                }
             }
         }
         catch (e) {
             console.error(e);
         }
     }
-    if (!cursorInfo) {
+    if (!cursorInfo || !cursorInfo.cursor) {
+        delete cursors[cursorKey];
         return [];
     }
     const items = [];
@@ -217,7 +205,13 @@ export async function getBatchStrings(databaseInfo, reset) {
         while (cursorInfo.cursor && items.length < 20) {
             items.push(JSON.stringify(cursorInfo.cursor.value));
             cursorInfo.cursor = await cursorInfo.cursor.continue();
-            cursorInfo.key = cursorInfo.cursor?.key;
+            if (cursorInfo.cursor) {
+                cursorInfo.key = cursorInfo.cursor.key;
+            }
+            else {
+                delete cursors[cursorKey];
+                return items;
+            }
         }
     }
     catch (e) {
