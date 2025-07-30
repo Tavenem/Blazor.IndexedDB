@@ -135,7 +135,13 @@ export async function getBatch(databaseInfo, reset) {
                 cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
                 if (cursorInfo.cursor) {
                     cursorInfo.cursor = await cursorInfo.cursor.continue();
-                    cursorInfo.key = cursorInfo.cursor?.key;
+                    if (cursorInfo.cursor) {
+                        cursorInfo.key = cursorInfo.cursor.key;
+                    }
+                    else {
+                        delete cursors[cursorKey];
+                        return [];
+                    }
                 }
             }
         }
@@ -189,7 +195,13 @@ export async function getBatchStrings(databaseInfo, reset) {
                 cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
                 if (cursorInfo.cursor) {
                     cursorInfo.cursor = await cursorInfo.cursor.continue();
-                    cursorInfo.key = cursorInfo.cursor?.key;
+                    if (cursorInfo.cursor) {
+                        cursorInfo.key = cursorInfo.cursor.key;
+                    }
+                    else {
+                        delete cursors[cursorKey];
+                        return [];
+                    }
                 }
             }
         }
