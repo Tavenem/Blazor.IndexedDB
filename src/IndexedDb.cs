@@ -22,6 +22,9 @@ namespace Tavenem.Blazor.IndexedDB;
 /// <param name="jsonSerializerOptions">
 /// A configured <see cref="JsonSerializerOptions"/> instance. Optional.
 /// </param>
+/// <param name="key">
+/// The name of the property used as the primary key. Optional. Default is "id".
+/// </param>
 /// <remarks>
 /// <para>
 /// See <a
@@ -38,7 +41,8 @@ public class IndexedDb(
     IndexedDbService indexedDbService,
     IEnumerable<string>? objectStores = null,
     int? version = null,
-    JsonSerializerOptions? jsonSerializerOptions = null)
+    JsonSerializerOptions? jsonSerializerOptions = null,
+    string? key = null)
 {
     /// <summary>
     /// Retrieve an <see cref="IndexedDbStore"/> by its <see cref="IndexedDbStore.StoreName"/>.
@@ -79,6 +83,14 @@ public class IndexedDb(
     /// A configured <see cref="JsonSerializerOptions"/> instance. Optional.
     /// </summary>
     public JsonSerializerOptions? JsonSerializerOptions { get; set; } = jsonSerializerOptions;
+
+    /// <summary>
+    /// The name of the property used as the primary key.
+    /// </summary>
+    /// <remarks>
+    /// When null, the default is "id".
+    /// </remarks>
+    public string? Key { get; set; } = key;
 
     /// <summary>
     /// An instance of <see cref="IndexedDbService"/>.

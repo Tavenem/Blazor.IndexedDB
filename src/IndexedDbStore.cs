@@ -63,6 +63,7 @@ public class IndexedDbStore(
         StoreName = storeName,
         Version = database.Version,
         StoreNames = [.. database.ObjectStoreNames],
+        KeyPath = database.Key,
     };
 
     /// <summary>
