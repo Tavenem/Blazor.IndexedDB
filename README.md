@@ -1,4 +1,4 @@
-![build](https://img.shields.io/github/workflow/status/Tavenem/Blazor.IndexedDB/publish/main) [![NuGet downloads](https://img.shields.io/nuget/dt/Tavenem.Blazor.IndexedDB)](https://www.nuget.org/packages/Tavenem.Blazor.IndexedDB/)
+![build](https://img.shields.io/github/actions/workflow/status/Tavenem/Blazor.IndexedDB/publish.yml?branch=main) [![NuGet downloads](https://img.shields.io/nuget/dt/Tavenem.Blazor.IndexedDB)](https://www.nuget.org/packages/Tavenem.Blazor.IndexedDB/)
 
 Tavenem.Blazor.IndexedDB
 ==
