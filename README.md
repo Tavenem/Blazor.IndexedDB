@@ -31,7 +31,7 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
         databaseName: "myDatabaseName", // the database name
         objectStores: ["valueStore"], // the names of value stores
         version: 2, // the version number of the current database schema
-        jsonSerializerOptions: options); // a JsonSerializerOptions instance
+        jsonSerializerOptions: new(JsonSerializerDefaults.Web)); // a JsonSerializerOptions instance
     ```
 
     Note that use of dependency injection for database instances is optional. They can also be
