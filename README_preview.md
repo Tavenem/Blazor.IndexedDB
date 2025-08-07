@@ -6,7 +6,7 @@ Tavenem.Blazor.IndexedDB
 Tavenem.Blazor.IndexedDB is a [Razor class library](https://docs.microsoft.com/en-us/aspnet/core/razor-pages/ui-class) (RCL) containing a [Razor component](https://docs.microsoft.com/en-us/aspnet/core/blazor/components/class-libraries).
 It grants managed access to the [IndexedDB API](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API).
 
-It uses the [idb](https://github.com/jakearchibald/idb) javascript library by [Jake Archibald](https://github.com/jakearchibald), and implements the `IDataStore` interface from the Tavenem [DataStore library](https://github.com/Tavenem/DataStore).
+It uses the [idb](https://github.com/jakearchibald/idb) javascript library by [Jake Archibald](https://github.com/jakearchibald), and implements the `IDataStore` interfaces from the Tavenem [DataStore library](https://github.com/Tavenem/DataStore).
 
 ## Installation
 
@@ -54,17 +54,28 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
 1. Call the `StoreItemAsync<T>`, `GetItemAsync<T>`, and `RemoveItemAsync<T>` methods on an `IndexedDbStore` to work with strongly-typed data items.
 
     ```c#
-    class Item : IIdItem
+    class Item : IIdItem<Item>
     {
-        public string Id { get; set; }
+        /// <summary>
+        /// The <see cref="IdItemTypeName"/> for this class.
+        /// </summary>
+        public new const string IIdItemTypeName = ":Item:";
+
+        /// <summary>
+        /// A built-in, read-only type discriminator.
+        /// </summary>
+        [JsonPropertyName("_id_t"), JsonInclude, JsonPropertyOrder(-1)]
+        public override string IdItemTypeName { get => IIdItemTypeName; init { } }
+
         public string? Value { get; set; }
+
+        /// <summary>
+        /// Gets the <see cref="IdItemTypeName"/> for any instance of this class as a static method.
+        /// </summary>
+        static string IIdItem.GetIdItemTypeName() => IIdItemTypeName;
     }
     
-    var item = new Item
-    {
-        Id = "1",
-        Value = "Hello, World!",
-    };
+    var item = new Item { Value = "Hello, World!" };
     
     await store.StoreItemAsync(item);
     
@@ -83,7 +94,7 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
 1. Call the `Query<T>` method to obtain an `IDataStoreQueryable<T>`. `IDataStoreQueryable<T>` is similar to `IQueryable<T>`, and can be used to make queries against the data source.
 
     ```c#
-    await foreach (var item in store.Query<Item>().AsAsyncEnumerable())
+    await foreach (var item in store.Query<Item>())
     {
         Console.WriteLine(item.Value);
     }
