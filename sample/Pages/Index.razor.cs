@@ -45,21 +45,29 @@ public partial class Index
             return;
         }
 
+        var store = IndexedDb[StoreName];
+        if (store is null)
+        {
+            return;
+        }
+
         var item = new Item { Value = Value };
         Value = null;
 
-        var store = IndexedDb[StoreName];
-        if (store is not null && await store.StoreItemAsync(item))
+        item = await store.StoreItemAsync(item);
+        if (item is null)
         {
-            Items.Add(item);
-            if (Filter is null
-                || item.Value.Contains(Filter, StringComparison.OrdinalIgnoreCase))
-            {
-                FilteredItems.Add(item);
-                FilteredItems.Sort((x, y) => x.Value?.CompareTo(y.Value) ?? (y.Value is null ? 0 : -1));
-            }
-            Count++;
+            return;
         }
+
+        Items.Add(item);
+        if (Filter is null
+            || item.Value?.Contains(Filter, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            FilteredItems.Add(item);
+            FilteredItems.Sort((x, y) => x.Value?.CompareTo(y.Value) ?? (y.Value is null ? 0 : -1));
+        }
+        Count++;
     }
 
     private async Task OnClearAsync()
@@ -124,8 +132,7 @@ public partial class Index
 
         var query = store
             .Query<Item>()
-            .Where(x => x.Value != null
-                && x.Value.Contains(Filter, StringComparison.OrdinalIgnoreCase));
+            .Where(x => x.Value?.Contains(Filter, StringComparison.OrdinalIgnoreCase) == true);
 
         // deliberately using inefficient logic, in order to test more paths
         FilterMatched = await query.AnyAsync();
@@ -134,9 +141,9 @@ public partial class Index
 
         FilteredItems =
         [
-            .. (await query
+            .. await query
                 .OrderBy(x => x.Value)
-                .ToListAsync())
+                .ToListAsync()
         ];
     }
 
@@ -187,12 +194,21 @@ public partial class Index
         item.IsUpdating = false;
 
         var store = IndexedDb[StoreName];
-        if (store is not null
-            && !await store.StoreItemAsync(item)
-            && await store.GetItemAsync<Item>(item.Id) is Item oldItem)
+        if (store is null)
         {
-            item.Value = oldItem.Value;
-            item.NewValue = oldItem.Value;
+            return;
+        }
+
+        var storedItem = await store.StoreItemAsync(item);
+        if (storedItem is null)
+        {
+            return;
+        }
+
+        if (await store.GetItemAsync<Item>(storedItem.Id) is Item retrievedItem)
+        {
+            item.Value = retrievedItem.Value;
+            item.NewValue = retrievedItem.Value;
         }
     }
 }

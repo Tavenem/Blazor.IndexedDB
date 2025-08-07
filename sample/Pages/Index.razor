@@ -45,7 +45,10 @@ else
         <label for="filter">Filter</label>
         <input id="filter" @bind-value="Filter" type="text">
         <button @onclick="OnFilterAsync" type="button">Filter</button>
-        <p><span><strong>Found?</strong> @FilterMatched</span></p>
-        <p><span><strong>Matched:</strong> @FilterCount</span></p>
+        @if (!string.IsNullOrEmpty(Filter))
+        {
+            <p><span><strong>Found?</strong> @FilterMatched</span></p>
+            <p><span><strong>Matched:</strong> @FilterCount</span></p>
+        }
     </div>
 }

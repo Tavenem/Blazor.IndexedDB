@@ -1,4 +1,5 @@
 using Microsoft.JSInterop;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
@@ -20,28 +21,37 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// <summary>
     /// Clears an object store.
     /// </summary>
-    /// <param name="store">
-    /// The <see cref="IndexedDbStore"/>.
-    /// </param>
-    public async Task ClearAsync(IndexedDbStore store)
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
+    public async Task ClearAsync<TItem>(
+        IndexedDbStore<TItem> store,
+        CancellationToken cancellationToken = default) where TItem : notnull
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
         await module
-            .InvokeVoidAsync("clear", store.Info)
+            .InvokeVoidAsync("clear", cancellationToken, store.Info)
             .ConfigureAwait(false);
     }
 
     /// <summary>
     /// Retrieves the number of items in the object store.
     /// </summary>
-    /// <param name="store">
-    /// The <see cref="IndexedDbStore"/>.
-    /// </param>
-    public async Task<long> CountAsync(IndexedDbStore store)
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
+    /// <returns>The number of items in the object store.</returns>
+    public async Task<long> CountAsync<TItem>(
+        IndexedDbStore<TItem> store,
+        CancellationToken cancellationToken = default) where TItem : notnull
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
         return await module
-            .InvokeAsync<long>("count", store.Info)
+            .InvokeAsync<long>("count", cancellationToken, store.Info)
             .ConfigureAwait(false);
     }
 
@@ -49,15 +59,18 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// Deletes the database.
     /// </summary>
     /// <param name="name">The name of the database.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <remarks>
     /// Note: this may not take effect immediately, or at all, if there are open
     /// connections to the database.
     /// </remarks>
-    public async Task DeleteDatabaseAsync(string name)
+    public async Task DeleteDatabaseAsync(
+        string name,
+        CancellationToken cancellationToken = default)
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
         await module
-            .InvokeVoidAsync("deleteDatabase", name)
+            .InvokeVoidAsync("deleteDatabase", cancellationToken, name)
             .ConfigureAwait(false);
     }
 
@@ -82,11 +95,15 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// <summary>
     /// Retrieves all the items in an IndexedDB object store.
     /// </summary>
-    /// <typeparam name="TValue">The type of value being retrieved.</typeparam>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <typeparam name="TValue">The type of object to retrieve.</typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
     /// <param name="typeInfo">
     /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
     /// </param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <remarks>
     /// Note: the IndexedDB object store cannot filter items by type. Using this method when there
     /// are objects of different types in your data store will result in an exception when
@@ -94,14 +111,19 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// method should only be used when you only employ this object store to store objects of a uniform
     /// type (or which inherit from a common type).
     /// </remarks>
-    public async IAsyncEnumerable<TValue> GetAllAsync<TValue>(IndexedDbStore store, JsonTypeInfo<TValue>? typeInfo = null)
+    public async IAsyncEnumerable<TValue> GetAllAsync<TItem, TValue>(
+        IndexedDbStore<TItem> store,
+        JsonTypeInfo<TValue>? typeInfo = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        where TItem : notnull
+        where TValue : TItem
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
 
         if (typeInfo is null && store.Database.JsonSerializerOptions is null)
         {
             var items = await module
-                .InvokeAsync<TValue[]>("getAll", store.Info)
+                .InvokeAsync<TValue[]>("getAll", cancellationToken, store.Info)
                 .ConfigureAwait(false);
             foreach (var item in items)
             {
@@ -111,7 +133,7 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
         }
 
         var strings = await module
-            .InvokeAsync<string[]>("getAllStrings", store.Info)
+            .InvokeAsync<string[]>("getAll", cancellationToken, store.Info, true)
             .ConfigureAwait(false);
 
         foreach (var item in strings)
@@ -136,16 +158,153 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
             {
                 yield return value;
             }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                yield break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Iterates all items from an IndexedDB object store.
+    /// </summary>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <typeparam name="TValue">The type of object to retrieve.</typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
+    /// <param name="skip">
+    /// The number of items to skip. Optional.
+    /// </param>
+    /// <param name="take">
+    /// The maximum number of items to take. Optional.
+    /// </param>
+    /// <param name="typeDiscriminator">
+    /// The name of a type discriminator property. Optional.
+    /// </param>
+    /// <param name="typeDiscriminatorValue">
+    /// The value of the type discriminator property which items must have in order to be returned. Optional.
+    /// </param>
+    /// <param name="typeInfo">
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
+    /// </param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
+    /// <remarks>
+    /// <para>
+    /// This method can be used directly, but it may be more intuitive to call
+    /// <c>IndexedDbStore{TItem}.Query{T}</c>  when enumerating items.
+    /// </para>
+    /// <para>
+    /// Note: the IndexedDB object store cannot filter items by type. Using this method when there
+    /// are objects of different types in your data store will result in an exception when
+    /// attempting to deserialize items of types other than <typeparamref name="TValue"/>. This
+    /// method should only be used when you only employ this database to store objects of a uniform
+    /// type (or which inherit from a common type).
+    /// </para>
+    /// </remarks>
+    public async IAsyncEnumerable<TValue> GetAllBatchesAsync<TItem, TValue>(
+        IndexedDbStore<TItem> store,
+        int? skip = null,
+        int? take = null,
+        string? typeDiscriminator = null,
+        string? typeDiscriminatorValue = null,
+        JsonTypeInfo<TValue>? typeInfo = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        where TItem : notnull
+        where TValue : TItem
+    {
+        var module = await _moduleTask.Value.ConfigureAwait(false);
+
+        var options = new BatchOptions(
+            true,
+            skip,
+            take,
+            typeDiscriminator,
+            typeDiscriminatorValue);
+
+        if (typeInfo is null && store.Database.JsonSerializerOptions is null)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var (items, more) = await module
+                    .InvokeAsync<BatchResult<TValue>>("getBatch", cancellationToken, store.Info, options)
+                    .ConfigureAwait(false);
+                foreach (var item in items)
+                {
+                    yield return item;
+                }
+                if (!more)
+                {
+                    yield break;
+                }
+                options = options with
+                {
+                    Reset = false,
+                    Skip = null,
+                    Take = options.Take is null ? null : options.Take - items.Count,
+                };
+            }
+            yield break;
+        }
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var (strings, more) = await module
+                .InvokeAsync<BatchResult<string>>("getBatch", cancellationToken, store.Info, options, true)
+                .ConfigureAwait(false);
+
+            foreach (var item in strings)
+            {
+                if (string.IsNullOrEmpty(item))
+                {
+                    continue;
+                }
+
+                TValue? value;
+                try
+                {
+                    value = typeInfo is null
+                        ? JsonSerializer.Deserialize<TValue>(item, store.Database.JsonSerializerOptions)
+                        : JsonSerializer.Deserialize(item, typeInfo);
+                }
+                catch
+                {
+                    continue;
+                }
+                if (value is not null)
+                {
+                    yield return value;
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    yield break;
+                }
+            }
+
+            if (!more)
+            {
+                yield break;
+            }
+
+            options = options with
+            {
+                Reset = false,
+                Skip = null,
+                Take = options.Take is null ? null : options.Take - strings.Count,
+            };
         }
     }
 
     /// <summary>
     /// Retrieves a batch of items from an IndexedDB object store.
     /// </summary>
-    /// <typeparam name="TValue">The type of value being retrieved.</typeparam>
-    /// <param name="store">
-    /// The <see cref="IndexedDbStore"/>.
-    /// </param>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <typeparam name="TValue">The type of object to retrieve.</typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
     /// <param name="reset">
     /// <para>
     /// Whether to restart iteration from the beginning.
@@ -156,15 +315,33 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// calls will return an empty array, until <see langword="true"/> is passed for this parameter.
     /// </para>
     /// </param>
+    /// <param name="skip">
+    /// <para>
+    /// The number of items to skip. Optional.
+    /// </para>
+    /// <para>
+    /// Should normally be set only when <paramref name="reset"/> is <see langword="true"/>,
+    /// otherwise the first <paramref name="skip"/> items in each batch will be skipped, which is
+    /// not usually the desired behavior.
+    /// </para>
+    /// </param>
+    /// <param name="take">
+    /// The maximum number of items to take. Optional.
+    /// </param>
+    /// <param name="typeDiscriminator">
+    /// The name of a type discriminator property. Optional.
+    /// </param>
+    /// <param name="typeDiscriminatorValue">
+    /// The value of the type discriminator property which items must have in order to be returned. Optional.
+    /// </param>
     /// <param name="typeInfo">
     /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
     /// </param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <remarks>
     /// <para>
-    /// This method can be used directly, but it may be more intuitive to call <see
-    /// cref="IndexedDbStore.Query{T}"/> and one of the <see cref="IDataStoreQueryable{T}"/>
-    /// methods, such as <see cref="IDataStoreQueryable{T}.AsAsyncEnumerable"/>, when enumerating
-    /// items.
+    /// This method can be used directly, but it may be more intuitive to call
+    /// <c>IndexedDbStore{TItem}.Query{T}</c>  when enumerating items.
     /// </para>
     /// <para>
     /// Note: the IndexedDB object store cannot filter items by type. Using this method when there
@@ -174,14 +351,31 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// type (or which inherit from a common type).
     /// </para>
     /// </remarks>
-    public async IAsyncEnumerable<TValue> GetBatchAsync<TValue>(IndexedDbStore store, bool reset = false, JsonTypeInfo<TValue>? typeInfo = null)
+    public async IAsyncEnumerable<TValue> GetBatchAsync<TItem, TValue>(
+        IndexedDbStore<TItem> store,
+        bool reset = false,
+        int? skip = null,
+        int? take = null,
+        string? typeDiscriminator = null,
+        string? typeDiscriminatorValue = null,
+        JsonTypeInfo<TValue>? typeInfo = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        where TItem : notnull
+        where TValue : TItem
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
 
+        var options = new BatchOptions(
+            reset,
+            skip,
+            take,
+            typeDiscriminator,
+            typeDiscriminatorValue);
+
         if (typeInfo is null && store.Database.JsonSerializerOptions is null)
         {
-            var items = await module
-                .InvokeAsync<TValue[]>("getBatch", store.Info, reset)
+            var (items, _) = await module
+                .InvokeAsync<BatchResult<TValue>>("getBatch", cancellationToken, store.Info, options)
                 .ConfigureAwait(false);
             foreach (var item in items)
             {
@@ -190,8 +384,8 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
             yield break;
         }
 
-        var strings = await module
-            .InvokeAsync<string[]>("getBatchStrings", store.Info, reset)
+        var (strings, _) = await module
+            .InvokeAsync<BatchResult<string>>("getBatch", cancellationToken, store.Info, options, true)
             .ConfigureAwait(false);
 
         foreach (var item in strings)
@@ -216,15 +410,24 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
             {
                 yield return value;
             }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                yield break;
+            }
         }
     }
 
     /// <summary>
     /// Gets the object with the given <paramref name="id"/>.
     /// </summary>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
     /// <typeparam name="TValue">The type of object to retrieve.</typeparam>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
     /// <param name="id">The unique id of the item to retrieve.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <returns>
     /// The item with the given id, or <see langword="null"/> if no item was found with that id.
     /// </returns>
@@ -233,7 +436,12 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// since it relies on reflection-based (de)serialization. To use source generated
     /// deserialization, use the overload which takes a <see cref="JsonTypeInfo{T}"/>.
     /// </remarks>
-    public async ValueTask<TValue?> GetItemAsync<TValue>(IndexedDbStore store, string? id)
+    public async ValueTask<TValue?> GetItemAsync<TItem, TValue>(
+        IndexedDbStore<TItem> store,
+        string? id,
+        CancellationToken cancellationToken = default)
+        where TItem : notnull
+        where TValue : TItem
     {
         if (id is null)
         {
@@ -245,13 +453,13 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
         if (store.Database.JsonSerializerOptions is null)
         {
             return await module
-                .InvokeAsync<TValue>("getValue", store.Info, id)
+                .InvokeAsync<TValue>("getValue", cancellationToken, store.Info, id)
                 .ConfigureAwait(false);
         }
         else
         {
             var item = await module
-                .InvokeAsync<string>("getValueString", store.Info, id)
+                .InvokeAsync<string>("getValue", cancellationToken, store.Info, id, true)
                 .ConfigureAwait(false);
             return string.IsNullOrEmpty(item)
                 ? default
@@ -262,16 +470,26 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// <summary>
     /// Gets the object with the given <paramref name="id"/>.
     /// </summary>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
     /// <typeparam name="TValue">The type of object to retrieve.</typeparam>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
     /// <param name="id">The unique id of the item to retrieve.</param>
     /// <param name="typeInfo">
     /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
     /// </param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <returns>
     /// The item with the given id, or <see langword="null"/> if no item was found with that id.
     /// </returns>
-    public async ValueTask<TValue?> GetItemAsync<TValue>(IndexedDbStore store, string? id, JsonTypeInfo<TValue>? typeInfo)
+    public async ValueTask<TValue?> GetItemAsync<TItem, TValue>(
+        IndexedDbStore<TItem> store,
+        string? id,
+        JsonTypeInfo<TValue>? typeInfo,
+        CancellationToken cancellationToken = default)
+        where TItem : notnull
+        where TValue : TItem
     {
         if (id is null)
         {
@@ -283,13 +501,13 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
         if (typeInfo is null && store.Database.JsonSerializerOptions is null)
         {
             return await module
-                .InvokeAsync<TValue>("getValue", store.Info, id)
+                .InvokeAsync<TValue>("getValue", cancellationToken, store.Info, id)
                 .ConfigureAwait(false);
         }
         else
         {
             var item = await module
-                .InvokeAsync<string>("getValueString", store.Info, id)
+                .InvokeAsync<string>("getValue", cancellationToken, store.Info, id, true)
                 .ConfigureAwait(false);
             if (string.IsNullOrEmpty(item))
             {
@@ -305,13 +523,20 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// <summary>
     /// Removes the item with the given id.
     /// </summary>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
     /// <param name="id">The id of the item to remove.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <returns>
     /// <see langword="true"/> if the removal succeeded, or there was no such item; otherwise <see
     /// langword="false"/>.
     /// </returns>
-    public async Task<bool> RemoveItemAsync(IndexedDbStore store, string? id)
+    public async ValueTask<bool> RemoveItemAsync<TItem>(
+        IndexedDbStore<TItem> store,
+        string? id,
+        CancellationToken cancellationToken = default) where TItem : notnull
     {
         if (id is null)
         {
@@ -320,89 +545,39 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
 
         var module = await _moduleTask.Value.ConfigureAwait(false);
         return await module
-            .InvokeAsync<bool>("deleteValue", store.Info, id)
+            .InvokeAsync<bool>("deleteValue", cancellationToken, store.Info, id)
             .ConfigureAwait(false);
     }
 
     /// <summary>
     /// Upserts the given <paramref name="item"/>.
     /// </summary>
-    /// <typeparam name="T">The type of object to upsert.</typeparam>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <typeparam name="TValue">The type of object to upsert.</typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
     /// <param name="item">The item to store.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <returns>
     /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
     /// <see langword="false"/>.
     /// </returns>
     /// <remarks>
-    /// <para>
     /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
     /// indicate that the operation did not fail (even though no storage operation took place,
     /// neither did any failure).
-    /// </para>
-    /// <para>
-    /// Note: this differs from <see cref="StoreItemAsync{T}(IndexedDbStore, T)"/> in that <see
-    /// cref="StoreItemAsync{T}(IndexedDbStore, T)"/> expects that <paramref name="item"/>
-    /// implements <see cref="IIdItem"/>, and serializes it accordingly.
-    /// </para>
     /// </remarks>
-    public async Task<bool> StoreAsync<T>(IndexedDbStore store, T? item) where T : class
+    public async ValueTask<TValue?> StoreAsync<TItem, TValue>(
+        IndexedDbStore<TItem> store,
+        TValue? item,
+        CancellationToken cancellationToken = default)
+        where TItem : notnull
+        where TValue : TItem
     {
         if (item is null)
         {
-            return true;
-        }
-
-        if (store.Database.JsonSerializerOptions is null)
-        {
-            var module = await _moduleTask.Value.ConfigureAwait(false);
-
-            // Explicitly serialize before invoking because T is passed as a plain object, and
-            // implements IIdItem, which causes the default serialization behavior to serialize only
-            // the interface properties.
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item))
-                .ConfigureAwait(false);
-        }
-        else
-        {
-            var module = await _moduleTask.Value.ConfigureAwait(false);
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item, store.Database.JsonSerializerOptions))
-                .ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// Upserts the given <paramref name="item"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of <see cref="IIdItem"/> to upsert.</typeparam>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
-    /// <param name="item">The item to store.</param>
-    /// <param name="typeInfo">
-    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
-    /// <see langword="false"/>.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
-    /// indicate that the operation did not fail (even though no storage operation took place,
-    /// neither did any failure).
-    /// </para>
-    /// <para>
-    /// Note: this differs from <see cref="StoreItemAsync{T}(IndexedDbStore, T, JsonTypeInfo{T})"/>
-    /// in that <see cref="StoreItemAsync{T}(IndexedDbStore, T, JsonTypeInfo{T})"/> expects that
-    /// <paramref name="item"/> implements <see cref="IIdItem"/>, and serializes it accordingly.
-    /// </para>
-    /// </remarks>
-    public async Task<bool> StoreAsync<T>(IndexedDbStore store, T? item, JsonTypeInfo<T>? typeInfo) where T : class
-    {
-        if (item is null)
-        {
-            return true;
+            return item;
         }
 
         var module = await _moduleTask.Value.ConfigureAwait(false);
@@ -411,105 +586,63 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
         // correct options are used, rather than whatever happens to be configured for JavaScript
         // interop.
 
-        if (store.Database.JsonSerializerOptions is not null)
-        {
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item, store.Database.JsonSerializerOptions))
-                .ConfigureAwait(false);
-        }
-
-        if (typeInfo is not null)
-        {
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item, typeInfo))
-                .ConfigureAwait(false);
-        }
-
-        return await module
-            .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item))
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Upserts the given <paramref name="item"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of <see cref="IIdItem"/> to upsert.</typeparam>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
-    /// <param name="item">The item to store.</param>
-    /// <returns>
-    /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
-    /// <see langword="false"/>.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
-    /// indicate that the operation did not fail (even though no storage operation took place,
-    /// neither did any failure).
-    /// </para>
-    /// <para>
-    /// Note: this differs from <see cref="StoreAsync{T}(IndexedDbStore, T)"/> in that this method
-    /// expects that <paramref name="item"/> implements <see cref="IIdItem"/>, and serializes it
-    /// accordingly, whereas <see cref="StoreAsync{T}(IndexedDbStore, T)"/> does not.
-    /// </para>
-    /// </remarks>
-    public async Task<bool> StoreItemAsync<T>(IndexedDbStore store, T? item) where T : class, IIdItem
-    {
-        if (item is null)
-        {
-            return true;
-        }
-
+        bool success;
         if (store.Database.JsonSerializerOptions is null)
         {
-            var module = await _moduleTask.Value.ConfigureAwait(false);
-
-            // Explicitly serialize before invoking because T is passed as a plain object, and
-            // implements IIdItem, which causes the default serialization behavior to serialize only
-            // the interface properties.
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item))
+            success = await module
+                .InvokeAsync<bool>("putValue", cancellationToken, store.Info, JsonSerializer.Serialize(item))
+                .ConfigureAwait(false);
+        }
+        else if (item is IIdItem idItem)
+        {
+            success = await module
+                .InvokeAsync<bool>("putValue", cancellationToken, store.Info, JsonSerializer.Serialize(idItem, store.Database.JsonSerializerOptions))
                 .ConfigureAwait(false);
         }
         else
         {
-            var module = await _moduleTask.Value.ConfigureAwait(false);
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize<IIdItem>(item, store.Database.JsonSerializerOptions))
+            success = await module
+                .InvokeAsync<bool>("putValue", cancellationToken, store.Info, JsonSerializer.Serialize(item, store.Database.JsonSerializerOptions))
                 .ConfigureAwait(false);
         }
+        return success
+            ? item
+            : default;
     }
 
     /// <summary>
     /// Upserts the given <paramref name="item"/>.
     /// </summary>
-    /// <typeparam name="T">The type of <see cref="IIdItem"/> to upsert.</typeparam>
-    /// <param name="store">The <see cref="IndexedDbStore"/>.</param>
+    /// <typeparam name="TItem">
+    /// A shared interface for all stored items in the <paramref name="store"/>.
+    /// </typeparam>
+    /// <typeparam name="TValue">The type of object to upsert.</typeparam>
+    /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
     /// <param name="item">The item to store.</param>
     /// <param name="typeInfo">
-    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="T"/>.
+    /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
     /// </param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <returns>
     /// <see langword="true"/> if the item was successfully persisted to the data store; otherwise
     /// <see langword="false"/>.
     /// </returns>
     /// <remarks>
-    /// <para>
     /// If the item is <see langword="null"/>, does nothing and returns <see langword="true"/>, to
     /// indicate that the operation did not fail (even though no storage operation took place,
     /// neither did any failure).
-    /// </para>
-    /// <para>
-    /// Note: this differs from <see cref="StoreAsync{T}(IndexedDbStore, T, JsonTypeInfo{T})"/> in
-    /// that this method expects that <paramref name="item"/> implements <see cref="IIdItem"/>, and
-    /// serializes it accordingly, whereas <see cref="StoreAsync{T}(IndexedDbStore, T,
-    /// JsonTypeInfo{T})"/> does not.
-    /// </para>
     /// </remarks>
-    public async Task<bool> StoreItemAsync<T>(IndexedDbStore store, T? item, JsonTypeInfo<T>? typeInfo) where T : class, IIdItem
+    public async ValueTask<TValue?> StoreAsync<TItem, TValue>(
+        IndexedDbStore<TItem> store,
+        TValue? item,
+        JsonTypeInfo<TValue>? typeInfo,
+        CancellationToken cancellationToken = default)
+        where TItem : notnull
+        where TValue : TItem
     {
         if (item is null)
         {
-            return true;
+            return item;
         }
 
         var module = await _moduleTask.Value.ConfigureAwait(false);
@@ -518,22 +651,39 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
         // correct options are used, rather than whatever happens to be configured for JavaScript
         // interop.
 
+        bool success;
         if (store.Database.JsonSerializerOptions is not null)
         {
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize<IIdItem>(item, store.Database.JsonSerializerOptions))
-                .ConfigureAwait(false);
+            success = item is IIdItem idItem
+                ? await module
+                    .InvokeAsync<bool>(
+                        "putValue",
+                        cancellationToken,
+                        store.Info,
+                        JsonSerializer.Serialize<IIdItem>(idItem, store.Database.JsonSerializerOptions))
+                    .ConfigureAwait(false)
+                : await module
+                    .InvokeAsync<bool>(
+                        "putValue",
+                        cancellationToken,
+                        store.Info,
+                        JsonSerializer.Serialize(item, store.Database.JsonSerializerOptions))
+                    .ConfigureAwait(false);
         }
-
-        if (typeInfo is not null)
+        else if (typeInfo is not null)
         {
-            return await module
-                .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item, typeInfo))
+            success = await module
+                .InvokeAsync<bool>("putValue", cancellationToken, store.Info, JsonSerializer.Serialize(item, typeInfo))
                 .ConfigureAwait(false);
         }
-
-        return await module
-            .InvokeAsync<bool>("putValue", store.Info, JsonSerializer.Serialize(item))
-            .ConfigureAwait(false);
+        else
+        {
+            success = await module
+                .InvokeAsync<bool>("putValue", cancellationToken, store.Info, JsonSerializer.Serialize(item))
+                .ConfigureAwait(false);
+        }
+        return success
+            ? item
+            : default;
     }
 }

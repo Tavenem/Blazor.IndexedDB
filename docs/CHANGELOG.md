@@ -1,5 +1,31 @@
 # Changelog
 
+## 7.0-preview.1
+### Changed
+- Now targets .NET 10
+- The original `IndexedDbStore` has been divided into two separate implementations:
+  - `IndexedDbStore<TItem>` which is aan abstract class that allows specifying the item type for stored items
+    - `IndexedDbStore<TItem>` implements the updated `IDataStore<string, TItem>` interface (see [the `Tavenem.DataStore` project](https://github.com/Tavenem/DataStore) for details)
+  - `IndexedDbStore` which replicates the original by extending `IndexedDbStore<IIdItem>`
+    - `IndexedDbStore` implements the updated `IIdItemDataStore` interface (see [the `Tavenem.DataStore` project](https://github.com/Tavenem/DataStore) for details)
+- `IndexedDbQueryable<TItem, TSource>` implements the updated `IDataStoreFirstQueryable<TSource>`, `IDataStoreOfTypeQueryable<TSource>`, `IDataStoreSkipQueryable<TSource>`, and `IDataStoreTakeQueryable<TSource>` interfaces (see [the `Tavenem.DataStore` project](https://github.com/Tavenem/DataStore) for details)
+
+## 6.3
+### Added
+- Support for customizing the `indexedDb keyPath`
+
+## 6.2
+### Fixed
+- Batching bug when requesting exactly 20 items in a query
+
+## 6.1
+### Fixed
+- Batching bug when requesting more than 20 items in a query
+
+## 6.0
+### Changed
+- All sync-over-async calls now throw a `NotImplementedException` with an appropriate message, and are decorated with both the `DoesNotReturn` and `UnsupportedOSPlatform("browser")` attributes
+
 ## 5.1
 ### Fixed
 - Loop when fetching more than 20 items

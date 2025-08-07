@@ -22,7 +22,7 @@ options.TypeInfoResolverChain.Add(ItemContext.Default.WithAddedModifier(static t
             IgnoreUnrecognizedTypeDiscriminators = true,
             UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FallBackToNearestAncestor,
         };
-        typeInfo.PolymorphismOptions.DerivedTypes.Add(new JsonDerivedType(typeof(Item), Item.ItemTypeName));
+        typeInfo.PolymorphismOptions.DerivedTypes.Add(new JsonDerivedType(typeof(Item), Item.IIdItemTypeName));
     }
 }));
 

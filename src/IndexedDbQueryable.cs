@@ -1,501 +1,169 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
-using System.Runtime.Versioning;
+﻿using System.Linq.Expressions;
 using System.Text.Json.Serialization.Metadata;
 using Tavenem.DataStorage;
+using Tavenem.DataStorage.Interfaces;
 
 namespace Tavenem.Blazor.IndexedDB;
 
 /// <summary>
 /// Provides LINQ operations on an <see cref="IndexedDbService"/>.
 /// </summary>
-/// <remarks>
-/// Note: this class does not implement the synchronous methods of <see cref="IDataStore"/>.
-/// Synchronous access to an IDBObjectStore from Blazor is not supported. Always use the equivalent
-/// asynchronous methods.
-/// </remarks>
-public class IndexedDbQueryable<T> : IDataStoreQueryable<T>
+/// <typeparam name="TItem">A shared interface for all stored items.</typeparam>
+/// <typeparam name="TSource">
+/// The type of the elements of the source.
+/// </typeparam>
+public class IndexedDbQueryable<TItem, TSource>(IndexedDbStore<TItem> store, JsonTypeInfo<TSource>? typeInfo = null)
+    : IDataStoreFirstQueryable<TSource>,
+    IDataStoreOfTypeQueryable<TSource>,
+    IDataStoreSkipQueryable<TSource>,
+    IDataStoreTakeQueryable<TSource>
+    where TItem : notnull
+    where TSource : TItem
 {
-    private const string SyncNotSupportedMessage = "This method is not supported by this library. Please use the async version of this method.";
-
-    private protected readonly Expression<Func<T, bool>>? _conditionalExpression;
-    private readonly IndexedDbStore? _store;
-    private protected readonly int _skip = 0;
-    private protected readonly int _take = -1;
-    private protected readonly JsonTypeInfo<T>? _typeInfo;
+    private protected readonly int? _skip;
+    private protected readonly int? _take;
 
     /// <summary>
-    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
+    /// The <see cref="IndexedDbStore{TItem}"/> provider for this queryable.
     /// </summary>
-    public IndexedDbQueryable(IndexedDbStore? store, JsonTypeInfo<T>? typeInfo = null)
-    {
-        _store = store;
-        _typeInfo = typeInfo;
-    }
+    public IndexedDbStore<TItem> IndexedDbProvider => store;
+
+    /// <inheritdoc/>
+    IDataStore IDataStoreQueryable<TSource>.Provider => store;
 
     /// <summary>
-    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
-    /// </summary>
-    protected IndexedDbQueryable(JsonTypeInfo<T>? typeInfo = null) => _typeInfo = typeInfo;
-
-    /// <summary>
-    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
-    /// </summary>
-    protected IndexedDbQueryable(int skip, int take, JsonTypeInfo<T>? typeInfo = null)
-    {
-        _skip = skip;
-        _take = take;
-        _typeInfo = typeInfo;
-    }
-
-    /// <summary>
-    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
-    /// </summary>
-    protected IndexedDbQueryable(Expression<Func<T, bool>>? expression, int skip, int take, JsonTypeInfo<T>? typeInfo = null)
-    {
-        _conditionalExpression = expression;
-        _skip = skip;
-        _take = take;
-        _typeInfo = typeInfo;
-    }
-
-    /// <summary>
-    /// Constructs a new instance of <see cref="IndexedDbQueryable{T}"/>.
+    /// Constructs a new instance of <see cref="IndexedDbQueryable{TItem, TSource}"/>.
     /// </summary>
     private IndexedDbQueryable(
-        IndexedDbStore? store,
-        Expression<Func<T, bool>>? expression,
-        int skip,
-        int take,
-        JsonTypeInfo<T>? typeInfo = null)
+        IndexedDbStore<TItem> store,
+        int? skip = null,
+        int? take = null,
+        JsonTypeInfo<TSource>? typeInfo = null) : this(store, typeInfo)
     {
-        _conditionalExpression = expression;
-        _store = store;
         _skip = skip;
         _take = take;
-        _typeInfo = typeInfo;
     }
 
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public bool Any() => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public bool Any(Expression<Func<T, bool>> predicate) => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    public async Task<bool> AnyAsync()
+    /// <inheritdoc />
+    public async ValueTask<TSource> FirstAsync(CancellationToken cancellationToken = default)
     {
-        await foreach (var _ in IterateSourceAsync())
+        var enumerator = Take(1).GetAsyncEnumerator(cancellationToken);
+        var result = await enumerator.MoveNextAsync();
+        if (result)
         {
-            return true;
+            return enumerator.Current;
         }
-        return false;
+        throw new InvalidOperationException("No elements in sequence.");
     }
 
-    /// <inheritdoc/>
-    public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
+    /// <inheritdoc />
+    public ValueTask<TSource> FirstAsync(Expression<Func<TSource, bool>> predicate, CancellationToken cancellationToken = default)
+        => this.FirstAsync(predicate.Compile(), cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask<TSource?> FirstOrDefaultAsync(CancellationToken cancellationToken = default)
     {
-        var test = predicate.Compile();
-        await foreach (var item in IterateSourceAsync())
+        var enumerator = Take(1).GetAsyncEnumerator(cancellationToken);
+        var result = await enumerator.MoveNextAsync();
+        if (result)
         {
-            if (test.Invoke(item))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public async Task<bool> AnyAsync(Func<T, ValueTask<bool>> predicate)
-    {
-        await foreach (var item in IterateSourceAsync())
-        {
-            if (await predicate.Invoke(item))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public IAsyncEnumerable<T> AsAsyncEnumerable() => IterateSourceAsync();
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public IEnumerable<T> AsEnumerable() => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public int Count() => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    public async Task<int> CountAsync()
-    {
-        var count = 0;
-        await foreach (var item in IterateSourceAsync())
-        {
-            count++;
-        }
-        return count;
-    }
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public T? FirstOrDefault() => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public T? FirstOrDefault(Expression<Func<T, bool>> predicate) => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    public async Task<T?> FirstOrDefaultAsync()
-    {
-        await foreach (var item in IterateSourceAsync())
-        {
-            return item;
+            return enumerator.Current;
         }
         return default;
     }
 
-    /// <inheritdoc/>
-    public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
-    {
-        var test = predicate.Compile();
-        await foreach (var item in IterateSourceAsync())
-        {
-            if (test.Invoke(item))
-            {
-                return item;
-            }
-        }
-        return default;
-    }
+    /// <inheritdoc />
+    public ValueTask<TSource?> FirstOrDefaultAsync(
+        Expression<Func<TSource, bool>> predicate,
+        CancellationToken cancellationToken = default)
+        => this.FirstOrDefaultAsync(predicate.Compile(), cancellationToken);
 
-    /// <inheritdoc/>
-    public async Task<T?> FirstOrDefaultAsync(Func<T, ValueTask<bool>> predicate)
-    {
-        await foreach (var item in IterateSourceAsync())
-        {
-            if (await predicate.Invoke(item))
-            {
-                return item;
-            }
-        }
-        return default;
-    }
+    /// <inheritdoc />
+    IAsyncEnumerator<TSource> IAsyncEnumerable<TSource>.GetAsyncEnumerator(CancellationToken cancellationToken)
+        => store is null
+        ? AsyncEnumerable.Empty<TSource>().GetAsyncEnumerator(cancellationToken)
+        : store.GetAllBatchesAsync(_skip, _take, typeInfo, cancellationToken).GetAsyncEnumerator(cancellationToken);
 
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public IPagedList<T> GetPage(int pageNumber, int pageSize) => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    public async Task<IPagedList<T>> GetPageAsync(int pageNumber, int pageSize)
-    {
-        var list = new List<T>();
-        var total = 0;
-        var skip = (pageNumber - 1) * pageSize;
-        await foreach (var item in IterateSourceAsync())
-        {
-            total++;
-            if (total <= skip)
-            {
-                continue;
-            }
-            if (list.Count < pageSize)
-            {
-                list.Add(item);
-            }
-        }
-        return new PagedList<T>(list, pageNumber, pageSize, total);
-    }
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public T? Max() => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    public async Task<T?> MaxAsync()
-    {
-        T? max = default;
-        await foreach (var item in IterateSourceAsync())
-        {
-            if (max is null
-                || Comparer<T>.Default.Compare(item, max) > 0)
-            {
-                max = item;
-            }
-        }
-        return max;
-    }
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public T? Min() => throw new NotImplementedException(SyncNotSupportedMessage);
-
-    /// <inheritdoc/>
-    public async Task<T?> MinAsync()
-    {
-        T? min = default;
-        await foreach (var item in IterateSourceAsync())
-        {
-            if (min is null
-                || Comparer<T>.Default.Compare(item, min) < 0)
-            {
-                min = item;
-            }
-        }
-        return min;
-    }
-
-    /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> OfType<TResult>(JsonTypeInfo<TResult>? typeInfo = null)
-        => Where(x => x is TResult)
-        .Select(x => (TResult)(object)x!, typeInfo);
-
-    /// <inheritdoc/>
-    public IOrderedDataStoreQueryable<T> OrderBy<TKey>(Expression<Func<T, TKey>> keySelector, bool descending = false)
-        => new OrderedIndexedDbQueryable<T, TKey>(this, keySelector, descending, _typeInfo);
-
-    /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> Select<TResult>(Expression<Func<T, TResult>> selector, JsonTypeInfo<TResult>? typeInfo = null)
-        => new SelectedIndexedDbQueryable<TResult, T>(this, selector, typeInfo);
-
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectAsync<TResult>(Func<T, ValueTask<TResult>> selector, JsonTypeInfo<TResult>? typeInfo = null)
-    {
-        await foreach (var item in IterateSourceAsync())
-        {
-            yield return await selector.Invoke(item);
-        }
-    }
-
-    /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> SelectMany<TResult>(Expression<Func<T, IEnumerable<TResult>>> selector, JsonTypeInfo<TResult>? typeInfo = null)
-        => new SelectedIndexedDbQueryable<TResult, T>(this, selector, typeInfo);
-
-    /// <inheritdoc/>
-    public IDataStoreQueryable<TResult> SelectMany<TCollection, TResult>(
-        Expression<Func<T, IEnumerable<TCollection>>> collectionSelector,
-        Expression<Func<T, TCollection, TResult>> resultSelector,
-        JsonTypeInfo<TResult>? typeInfo = null) => new ManySelectedIndexedDbQueryable<TResult, TCollection, T>(
-        this,
-        collectionSelector,
-        resultSelector,
+    /// <inheritdoc />
+    public IDataStoreOfTypeQueryable<TResult> OfType<TResult>(JsonTypeInfo<TResult>? typeInfo = null) where TResult : TSource
+        => new IndexedDbQueryable<TItem, TResult>(
+        store,
+        _skip,
+        _take,
         typeInfo);
 
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TResult>(Func<T, IAsyncEnumerable<TResult>> selector, JsonTypeInfo<TResult>? typeInfo = null)
+    /// <inheritdoc />
+    public async ValueTask<TSource> SingleAsync(CancellationToken cancellationToken = default)
     {
-        await foreach (var item in IterateSourceAsync())
+        var enumerator = Take(2).GetAsyncEnumerator(cancellationToken);
+        var result = await enumerator.MoveNextAsync();
+        if (!result)
         {
-            await foreach (var child in selector.Invoke(item))
-            {
-                yield return child;
-            }
+            throw new InvalidOperationException("No elements in sequence.");
         }
+        var current = enumerator.Current;
+        if (await enumerator.MoveNextAsync())
+        {
+            throw new InvalidOperationException("Sequence contains more than one element.");
+        }
+        return current;
     }
 
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(
-        Func<T, IEnumerable<TCollection>> collectionSelector,
-        Func<T, TCollection, ValueTask<TResult>> resultSelector,
-        JsonTypeInfo<TResult>? typeInfo = null)
+    /// <inheritdoc />
+    public ValueTask<TSource> SingleAsync(
+        Expression<Func<TSource, bool>> predicate,
+        CancellationToken cancellationToken = default)
+        => this.SingleAsync(predicate.Compile(), cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask<TSource?> SingleOrDefaultAsync(CancellationToken cancellationToken = default)
     {
-        await foreach (var item in IterateSourceAsync())
+        var enumerator = Take(2).GetAsyncEnumerator(cancellationToken);
+        var result = await enumerator.MoveNextAsync();
+        if (!result)
         {
-            foreach (var child in collectionSelector.Invoke(item))
-            {
-                yield return await resultSelector.Invoke(item, child);
-            }
+            return default;
         }
+        var current = enumerator.Current;
+        if (await enumerator.MoveNextAsync())
+        {
+            throw new InvalidOperationException("Sequence contains more than one element.");
+        }
+        return current;
     }
 
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(
-        Func<T, IAsyncEnumerable<TCollection>> collectionSelector,
-        Func<T, TCollection, TResult> resultSelector,
-        JsonTypeInfo<TResult>? typeInfo = null)
-    {
-        await foreach (var item in IterateSourceAsync())
-        {
-            await foreach (var child in collectionSelector.Invoke(item))
-            {
-                yield return resultSelector.Invoke(item, child);
-            }
-        }
-    }
+    /// <inheritdoc />
+    public ValueTask<TSource?> SingleOrDefaultAsync(
+        Expression<Func<TSource, bool>> predicate,
+        CancellationToken cancellationToken = default)
+        => this.SingleOrDefaultAsync(predicate.Compile(), cancellationToken);
 
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<TResult> SelectManyAsync<TCollection, TResult>(
-        Func<T, IAsyncEnumerable<TCollection>> collectionSelector,
-        Func<T, TCollection, ValueTask<TResult>> resultSelector,
-        JsonTypeInfo<TResult>? typeInfo = null)
-    {
-        await foreach (var item in IterateSourceAsync())
-        {
-            await foreach (var child in collectionSelector.Invoke(item))
-            {
-                yield return await resultSelector.Invoke(item, child);
-            }
-        }
-    }
-
-    /// <inheritdoc/>
-    public virtual IDataStoreQueryable<T> Skip(int count) => new IndexedDbQueryable<T>(
-        _store,
-        _conditionalExpression,
+    /// <inheritdoc />
+    public IDataStoreSkipQueryable<TSource> Skip(int count) => new IndexedDbQueryable<TItem, TSource>(
+        store,
         count,
         _take,
-        _typeInfo);
+        typeInfo);
 
-    /// <inheritdoc/>
-    public virtual IDataStoreQueryable<T> Take(int count) => new IndexedDbQueryable<T>(
-        _store,
-        _conditionalExpression,
+    /// <inheritdoc />
+    public IDataStoreTakeQueryable<TSource> Take(int count) => new IndexedDbQueryable<TItem, TSource>(
+        store,
         _skip,
         count,
-        _typeInfo);
+        typeInfo);
 
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Always throws <see cref="NotImplementedException"/>. Use the async version of this method.
-    /// </remarks>
-    /// <exception cref="NotImplementedException" />
-    [DoesNotReturn, UnsupportedOSPlatform("browser")]
-    public IReadOnlyList<T> ToList() => throw new NotImplementedException(SyncNotSupportedMessage);
+    /// <inheritdoc />
+    public IDataStoreTakeQueryable<TSource> Take(Range range) => new IndexedDbQueryable<TItem, TSource>(
+        store,
+        range.Start.Value - 1,
+        range.End.Value - range.Start.Value,
+        typeInfo);
 
-    /// <inheritdoc/>
-    public async Task<IReadOnlyList<T>> ToListAsync()
-    {
-        var list = new List<T>();
-        await foreach (var item in IterateSourceAsync())
-        {
-            list.Add(item);
-        }
-        return list;
-    }
+    /// <inheritdoc />
+    public async ValueTask<(bool Success, int Count)> TryGetNonEnumeratedCountAsync(CancellationToken cancellationToken = default)
+        => (true, (int)await store.CountAsync(cancellationToken));
 
-    /// <inheritdoc/>
-    public virtual IDataStoreQueryable<T> Where(Expression<Func<T, bool>> predicate) => new IndexedDbQueryable<T>(
-        _store,
-        _conditionalExpression is null
-            ? predicate
-            : CombineCondition(predicate),
-        _skip,
-        _take,
-        _typeInfo);
-
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<T> WhereAsync(Func<T, ValueTask<bool>> predicate)
-    {
-        await foreach (var item in IterateSourceAsync())
-        {
-            if (await predicate.Invoke(item))
-            {
-                yield return item;
-            }
-        }
-    }
-
-    private protected Expression<Func<T, bool>> CombineCondition(Expression<Func<T, bool>> expression)
-    {
-        if (_conditionalExpression is null)
-        {
-            return expression;
-        }
-
-        var newExpression = new ReplaceExpressionVisitor(
-            expression.Parameters[0],
-            _conditionalExpression.Parameters[0])
-            .Visit(expression.Body)
-            ?? throw new InvalidOperationException("Expression could not be constructed successfully.");
-        return Expression.Lambda<Func<T, bool>>(Expression.AndAlso(
-            _conditionalExpression,
-            newExpression),
-            _conditionalExpression.Parameters[0]);
-    }
-
-    internal virtual async IAsyncEnumerable<T> IterateSourceAsync()
-    {
-        if (_store is null)
-        {
-            yield break;
-        }
-        var condition = _conditionalExpression?.Compile();
-        var reset = true;
-        var count = 0;
-        while (true)
-        {
-            var batchCount = 0;
-            await foreach (var item in _store
-                .GetBatchAsync(reset, _typeInfo))
-            {
-                batchCount++;
-                if (condition?.Invoke(item) == false)
-                {
-                    continue;
-                }
-                count++;
-                if (count <= _skip)
-                {
-                    continue;
-                }
-                yield return item;
-                if (_take >= 0 && count >= _take)
-                {
-                    break;
-                }
-            }
-            if (batchCount == 0)
-            {
-                break;
-            }
-            if ((_take >= 0 && count >= _take)
-                || batchCount < 20)
-            {
-                break;
-            }
-            reset = false;
-        }
-    }
+    /// <inheritdoc />
+    public async ValueTask<(bool Success, long Count)> TryGetNonEnumeratedLongCountAsync(CancellationToken cancellationToken = default)
+        => (true, await store.CountAsync(cancellationToken));
 }

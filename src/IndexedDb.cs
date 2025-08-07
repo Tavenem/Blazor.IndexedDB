@@ -45,9 +45,10 @@ public class IndexedDb(
     string? key = null)
 {
     /// <summary>
-    /// Retrieve an <see cref="IndexedDbStore"/> by its <see cref="IndexedDbStore.StoreName"/>.
+    /// Retrieve an <see cref="IndexedDbStore"/> by its <see
+    /// cref="IndexedDbStore{TItem}.StoreName"/>.
     /// </summary>
-    /// <param name="name">The <see cref="IndexedDbStore.StoreName"/> to retrieve.</param>
+    /// <param name="name">The <see cref="IndexedDbStore{TItem}.StoreName"/> to retrieve.</param>
     /// <returns>
     /// An <see cref="IndexedDbStore"/> instance; or <see langword="null"/> if there is no store
     /// registered by that name.

@@ -1,17 +1,25 @@
 import { openDB, deleteDB, IDBPCursorWithValue } from 'idb';
 
-interface DatabaseInfo {
-    databaseName: string;
-    storeName: string | undefined | null;
-    version: number | undefined | null;
-    keyPath: string | undefined | null;
-    storeNames: string[] | undefined | null;
+interface BatchOptions {
+    reset: boolean;
+    skip?: number;
+    take?: number;
+    typeDiscriminator?: string;
+    typeDiscriminatorValue?: string;
 }
 
 interface CursorInfo {
     db: DatabaseInfo;
     cursor: IDBPCursorWithValue | null;
     key?: IDBValidKey | null;
+}
+
+interface DatabaseInfo {
+    databaseName: string;
+    storeName: string | undefined | null;
+    version: number | undefined | null;
+    keyPath: string | undefined | null;
+    storeNames: string[] | undefined | null;
 }
 
 const cursors: Record<string, CursorInfo> = {};
@@ -98,40 +106,33 @@ export async function deleteValue(databaseInfo: DatabaseInfo, key: IDBValidKey) 
     }
 }
 
-export async function getAll(databaseInfo: DatabaseInfo) {
+export async function getAll(databaseInfo: DatabaseInfo, asString: boolean = false) {
     const db = await openDatabase(databaseInfo);
     if (!db) {
         return [];
     }
     try {
-        return await db.getAll(databaseInfo.storeName ?? databaseInfo.databaseName);
+        const result = await db.getAll(databaseInfo.storeName ?? databaseInfo.databaseName);
+        return asString ? result.map(item => JSON.stringify(item)) : result;
     } catch (e) {
         console.error(e);
         return [];
     }
 }
 
-export async function getAllStrings(databaseInfo: DatabaseInfo) {
+export async function getBatch(
+    databaseInfo: DatabaseInfo,
+    options?: BatchOptions,
+    asString: boolean = false) {
+    if (options?.take != null && options.take <= 0) {
+        return { items: [], more: false };
+    }
     const db = await openDatabase(databaseInfo);
     if (!db) {
-        return [];
-    }
-    try {
-        var items = await db.getAll(databaseInfo.storeName ?? databaseInfo.databaseName);
-        return items.map(v => JSON.stringify(v));
-    } catch (e) {
-        console.error(e);
-        return [];
-    }
-}
-
-export async function getBatch(databaseInfo: DatabaseInfo, reset: boolean) {
-    const db = await openDatabase(databaseInfo);
-    if (!db) {
-        return [];
+        return { items: [], more: false };
     }
     const cursorKey = databaseInfo.databaseName + '.' + databaseInfo.storeName;
-    if (reset) {
+    if (options?.reset) {
         delete cursors[cursorKey];
     }
     let cursorInfo = cursors[cursorKey];
@@ -157,100 +158,69 @@ export async function getBatch(databaseInfo: DatabaseInfo, reset: boolean) {
     }
     if (!cursorInfo || !cursorInfo.cursor) {
         delete cursors[cursorKey];
-        return [];
+        return { items: [], more: false };
     }
-    const items = [];
-    try {
-        while (cursorInfo.cursor && items.length < 20) {
-            items.push(cursorInfo.cursor.value);
-            cursorInfo.cursor = await cursorInfo.cursor.continue();
-            if (cursorInfo.cursor) {
-                cursorInfo.key = cursorInfo.cursor.key;
-            } else {
-                delete cursors[cursorKey];
-                return items;
-            }
-        }
-    } catch (e) {
-        console.error(e);
-    }
-    cursors[cursorKey] = cursorInfo;
-    return items;
-}
-
-export async function getBatchStrings(databaseInfo: DatabaseInfo, reset: boolean) {
-    const db = await openDatabase(databaseInfo);
-    if (!db) {
-        return [];
-    }
-    const cursorKey = databaseInfo.databaseName + '.' + databaseInfo.storeName;
-    if (reset) {
-        delete cursors[cursorKey];
-    }
-    let cursorInfo = cursors[cursorKey];
-    if (!cursorInfo || cursorInfo.db.version != databaseInfo.version) {
-        try {
-            const cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
-            cursorInfo = {
-                db: databaseInfo,
-                cursor,
-            };
-        } catch (e) {
-            console.error(e);
-        }
-    } else {
-        try {
-            cursorInfo.cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
-            if (cursorInfo.cursor && cursorInfo.key) {
-                cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
-            }
-        } catch (e) {
-            console.error(e);
-        }
+    const hasTypeDiscriminator = options?.typeDiscriminator != null && options.typeDiscriminatorValue != null;
+    if (options?.skip && options.skip > 0 && !hasTypeDiscriminator) {
+        cursorInfo.cursor = await cursorInfo.cursor.advance(options.skip);
     }
     if (!cursorInfo || !cursorInfo.cursor) {
         delete cursors[cursorKey];
-        return [];
+        return { items: [], more: false };
     }
+    const takeAtMost = options?.take != null ? options.take : 20;
+    let skipCount = options?.skip && options.skip > 0 ? options.skip : 0;
     const items = [];
     try {
-        while (cursorInfo.cursor && items.length < 20) {
-            items.push(JSON.stringify(cursorInfo.cursor.value));
+        while (cursorInfo.cursor && items.length < takeAtMost) {
+            const current = cursorInfo.cursor.value;
             cursorInfo.cursor = await cursorInfo.cursor.continue();
             if (cursorInfo.cursor) {
                 cursorInfo.key = cursorInfo.cursor.key;
+            }
+
+            if (hasTypeDiscriminator) {
+                if (current[options.typeDiscriminator!] !== options.typeDiscriminatorValue) {
+                    const str = current[options.typeDiscriminator!];
+                    if (str == null
+                        || typeof str !== 'string'
+                        || !str.startsWith(options.typeDiscriminatorValue!)) {
+                        continue;
+                    }
+                }
+                if (skipCount > 0) {
+                    skipCount--;
+                    continue;
+                }
+            }
+            if (asString) {
+                items.push(JSON.stringify(current));
             } else {
-                delete cursors[cursorKey];
-                return items;
+                items.push(current);
             }
         }
     } catch (e) {
         console.error(e);
     }
-    cursors[cursorKey] = cursorInfo;
-    return items;
+    let more: boolean;
+    if (!cursorInfo || !cursorInfo.cursor) {
+        delete cursors[cursorKey];
+        more = false;
+    } else {
+        cursors[cursorKey] = cursorInfo;
+        more = true;
+    }
+    return { items, more };
 }
 
-export async function getValue(databaseInfo: DatabaseInfo, key: IDBValidKey) {
+export async function getValue(databaseInfo: DatabaseInfo, key: IDBValidKey, asString: boolean = false) {
     const db = await openDatabase(databaseInfo);
     if (!db) {
         return null;
     }
     try {
-        return await db.get(databaseInfo.storeName ?? databaseInfo.databaseName, key);
-    } catch (e) {
-        console.error(e);
-        return null;
-    }
-}
-
-export async function getValueString(databaseInfo: DatabaseInfo, key: IDBValidKey) {
-    const db = await openDatabase(databaseInfo);
-    if (!db) {
-        return null;
-    }
-    try {
-        return JSON.stringify(await db.get(databaseInfo.storeName ?? databaseInfo.databaseName, key));
+        const value = await db.get(databaseInfo.storeName ?? databaseInfo.databaseName, key);
+        return asString ? JSON.stringify(value) : value;
     } catch (e) {
         console.error(e);
         return null;
