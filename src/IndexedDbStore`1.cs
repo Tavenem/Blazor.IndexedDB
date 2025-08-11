@@ -265,7 +265,7 @@ public abstract class IndexedDbStore<TItem>(
         => new IndexedDbQueryable<TItem, T>(this, typeInfo);
 
     /// <inheritdoc />
-    public ValueTask<bool> RemoveItemAsync(string? id, CancellationToken cancellationToken = default)
+    public ValueTask<bool> RemoveItemAsync<T>(string? id, CancellationToken cancellationToken = default) where T : TItem
         => id is null
         ? ValueTask.FromResult(true)
         : Database.Service.RemoveItemAsync(this, id, cancellationToken);

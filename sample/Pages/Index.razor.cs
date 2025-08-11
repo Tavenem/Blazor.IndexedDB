@@ -87,7 +87,7 @@ public partial class Index
     private async Task OnDeleteAsync(Item item)
     {
         var store = IndexedDb[StoreName];
-        if (store is null || await store.RemoveItemAsync(item.Id))
+        if (store is null || await store.RemoveItemAsync(item))
         {
             Items.Remove(item);
             FilteredItems.Remove(item);
