@@ -121,6 +121,8 @@ Tavenem.Blazor.IndexedDB is available as a [NuGet package](https://www.nuget.org
 
 New versions of Tavenem.IndexedDb should be expected whenever the API surface of the Tavenem [DataStore library](https://github.com/Tavenem/DataStore) receives an update.
 
+There is a preview release available now. See README_preview.md for an updated example of how to use the new API.
+
 Other updates to resolve bugs or add new features may occur at any time.
 
 ## Contributing
