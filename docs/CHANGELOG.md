@@ -1,10 +1,10 @@
 # Changelog
 
-## 7.0-preview.2
+## 7.0-preview.1
 ### Changed
 - Now targets .NET 10
 - The original `IndexedDbStore` has been divided into two separate implementations:
-  - `IndexedDbStore<TItem>` which is aan abstract class that allows specifying the item type for stored items
+  - `IndexedDbStore<TItem>` which is an abstract class that allows specifying the item type for stored items
     - `IndexedDbStore<TItem>` implements the updated `IDataStore<string, TItem>` interface (see [the `Tavenem.DataStore` project](https://github.com/Tavenem/DataStore) for details)
   - `IndexedDbStore` which replicates the original by extending `IndexedDbStore<IIdItem>`
     - `IndexedDbStore` implements the updated `IIdItemDataStore` interface (see [the `Tavenem.DataStore` project](https://github.com/Tavenem/DataStore) for details)
