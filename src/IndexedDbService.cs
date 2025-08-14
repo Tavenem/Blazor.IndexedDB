@@ -217,7 +217,6 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
         var module = await _moduleTask.Value.ConfigureAwait(false);
 
         var options = new BatchOptions(
-            true,
             skip,
             take,
             typeDiscriminator,
@@ -227,22 +226,22 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var (items, more) = await module
+                var (items, continuationKey) = await module
                     .InvokeAsync<BatchResult<TValue>>("getBatch", cancellationToken, store.Info, options)
                     .ConfigureAwait(false);
                 foreach (var item in items)
                 {
                     yield return item;
                 }
-                if (!more)
+                if (string.IsNullOrEmpty(continuationKey))
                 {
                     yield break;
                 }
                 options = options with
                 {
-                    Reset = false,
                     Skip = null,
                     Take = options.Take is null ? null : options.Take - items.Count,
+                    ContinuationKey = continuationKey,
                 };
             }
             yield break;
@@ -250,7 +249,7 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            var (strings, more) = await module
+            var (strings, continuationKey) = await module
                 .InvokeAsync<BatchResult<string>>("getBatch", cancellationToken, store.Info, options, true)
                 .ConfigureAwait(false);
 
@@ -283,16 +282,16 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
                 }
             }
 
-            if (!more)
+            if (string.IsNullOrEmpty(continuationKey))
             {
                 yield break;
             }
 
             options = options with
             {
-                Reset = false,
                 Skip = null,
                 Take = options.Take is null ? null : options.Take - strings.Count,
+                ContinuationKey = continuationKey,
             };
         }
     }
@@ -305,16 +304,6 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// </typeparam>
     /// <typeparam name="TValue">The type of object to retrieve.</typeparam>
     /// <param name="store">The <see cref="IndexedDbStore{TItem}"/>.</param>
-    /// <param name="reset">
-    /// <para>
-    /// Whether to restart iteration from the beginning.
-    /// </para>
-    /// <para>
-    /// When <see langword="false"/>, successive calls to this method will fetch batches of items
-    /// from the store until no more items remain to be enumerated. At that point, all following
-    /// calls will return an empty array, until <see langword="true"/> is passed for this parameter.
-    /// </para>
-    /// </param>
     /// <param name="skip">
     /// <para>
     /// The number of items to skip. Optional.
@@ -334,10 +323,16 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// <param name="typeDiscriminatorValue">
     /// The value of the type discriminator property which items must have in order to be returned. Optional.
     /// </param>
+    /// <param name="continuationKey">
+    /// A continuation key (from the return value of a previous call to this method).
+    /// </param>
     /// <param name="typeInfo">
     /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
     /// </param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
+    /// <returns>
+    /// A list of results for this batch, and a continuation key for the next batch, if there are more results.
+    /// </returns>
     /// <remarks>
     /// <para>
     /// This method can be used directly, but it may be more intuitive to call
@@ -351,43 +346,40 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// type (or which inherit from a common type).
     /// </para>
     /// </remarks>
-    public async IAsyncEnumerable<TValue> GetBatchAsync<TItem, TValue>(
+    public async Task<(List<TValue> Items, string? ContinuationKey)> GetBatchAsync<TItem, TValue>(
         IndexedDbStore<TItem> store,
-        bool reset = false,
         int? skip = null,
         int? take = null,
         string? typeDiscriminator = null,
         string? typeDiscriminatorValue = null,
+        string? continuationKey = null,
         JsonTypeInfo<TValue>? typeInfo = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
         where TItem : notnull
         where TValue : TItem
     {
         var module = await _moduleTask.Value.ConfigureAwait(false);
 
         var options = new BatchOptions(
-            reset,
             skip,
             take,
             typeDiscriminator,
-            typeDiscriminatorValue);
+            typeDiscriminatorValue,
+            continuationKey);
 
         if (typeInfo is null && store.Database.JsonSerializerOptions is null)
         {
-            var (items, _) = await module
+            var (items, nextContinuationKey) = await module
                 .InvokeAsync<BatchResult<TValue>>("getBatch", cancellationToken, store.Info, options)
                 .ConfigureAwait(false);
-            foreach (var item in items)
-            {
-                yield return item;
-            }
-            yield break;
+            return (items, nextContinuationKey);
         }
 
-        var (strings, _) = await module
+        var (strings, nextStringContinuationKey) = await module
             .InvokeAsync<BatchResult<string>>("getBatch", cancellationToken, store.Info, options, true)
             .ConfigureAwait(false);
 
+        var values = new List<TValue>(strings.Count);
         foreach (var item in strings)
         {
             if (string.IsNullOrEmpty(item))
@@ -408,14 +400,15 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
             }
             if (value is not null)
             {
-                yield return value;
+                values.Add(value);
             }
 
             if (cancellationToken.IsCancellationRequested)
             {
-                yield break;
+                break;
             }
         }
+        return (values, nextStringContinuationKey);
     }
 
     /// <summary>

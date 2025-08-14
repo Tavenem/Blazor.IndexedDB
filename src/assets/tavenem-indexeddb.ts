@@ -1,17 +1,11 @@
 import { openDB, deleteDB, IDBPCursorWithValue } from 'idb';
 
 interface BatchOptions {
-    reset: boolean;
     skip?: number;
     take?: number;
     typeDiscriminator?: string;
     typeDiscriminatorValue?: string;
-}
-
-interface CursorInfo {
-    db: DatabaseInfo;
-    cursor: IDBPCursorWithValue | null;
-    key?: IDBValidKey | null;
+    continuationKey?: string;
 }
 
 interface DatabaseInfo {
@@ -21,8 +15,6 @@ interface DatabaseInfo {
     keyPath: string | undefined | null;
     storeNames: string[] | undefined | null;
 }
-
-const cursors: Record<string, CursorInfo> = {};
 
 async function openDatabase(databaseInfo: DatabaseInfo) {
     if (databaseInfo.version === null) {
@@ -125,58 +117,43 @@ export async function getBatch(
     options?: BatchOptions,
     asString: boolean = false) {
     if (options?.take != null && options.take <= 0) {
-        return { items: [], more: false };
+        return { items: [], more: false, continuationKey: null };
     }
     const db = await openDatabase(databaseInfo);
     if (!db) {
-        return { items: [], more: false };
+        return { items: [], continuationKey: null };
     }
-    const cursorKey = databaseInfo.databaseName + '.' + databaseInfo.storeName;
-    if (options?.reset) {
-        delete cursors[cursorKey];
-    }
-    let cursorInfo = cursors[cursorKey];
-    if (!cursorInfo || cursorInfo.db.version != databaseInfo.version) {
-        try {
-            const cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
-            cursorInfo = {
-                db: databaseInfo,
-                cursor,
-            };
-        } catch (e) {
-            console.error(e);
+    let cursor;
+    try {
+        cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
+        if (cursor && options?.continuationKey != null) {
+            cursor = await cursor.continue(options.continuationKey);
         }
-    } else {
-        try {
-            cursorInfo.cursor = await db.transaction(databaseInfo.storeName ?? databaseInfo.databaseName).store.openCursor();
-            if (cursorInfo.cursor && cursorInfo.key) {
-                cursorInfo.cursor = await cursorInfo.cursor.continue(cursorInfo.key);
-            }
-        } catch (e) {
-            console.error(e);
-        }
+    } catch (e) {
+        console.error(e);
     }
-    if (!cursorInfo || !cursorInfo.cursor) {
-        delete cursors[cursorKey];
-        return { items: [], more: false };
+    if (!cursor) {
+        return { items: [], continuationKey: null };
     }
     const hasTypeDiscriminator = options?.typeDiscriminator != null && options.typeDiscriminatorValue != null;
     if (options?.skip && options.skip > 0 && !hasTypeDiscriminator) {
-        cursorInfo.cursor = await cursorInfo.cursor.advance(options.skip);
+        cursor = await cursor.advance(options.skip);
     }
-    if (!cursorInfo || !cursorInfo.cursor) {
-        delete cursors[cursorKey];
-        return { items: [], more: false };
+    if (!cursor) {
+        return { items: [], continuationKey: null };
     }
     const takeAtMost = options?.take != null ? options.take : 20;
     let skipCount = options?.skip && options.skip > 0 ? options.skip : 0;
     const items = [];
+    let continuationKey: string | null | undefined;
     try {
-        while (cursorInfo.cursor && items.length < takeAtMost) {
-            const current = cursorInfo.cursor.value;
-            cursorInfo.cursor = await cursorInfo.cursor.continue();
-            if (cursorInfo.cursor) {
-                cursorInfo.key = cursorInfo.cursor.key;
+        while (cursor && items.length < takeAtMost) {
+            const current = cursor.value;
+            cursor = await cursor.continue();
+            if (cursor && typeof cursor.key === 'string') {
+                continuationKey = cursor.key;
+            } else {
+                continuationKey = null;
             }
 
             if (hasTypeDiscriminator) {
@@ -202,15 +179,7 @@ export async function getBatch(
     } catch (e) {
         console.error(e);
     }
-    let more: boolean;
-    if (!cursorInfo || !cursorInfo.cursor) {
-        delete cursors[cursorKey];
-        more = false;
-    } else {
-        cursors[cursorKey] = cursorInfo;
-        more = true;
-    }
-    return { items, more };
+    return { items, continuationKey };
 }
 
 export async function getValue(databaseInfo: DatabaseInfo, key: IDBValidKey, asString: boolean = false) {
