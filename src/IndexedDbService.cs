@@ -309,9 +309,10 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// The number of items to skip. Optional.
     /// </para>
     /// <para>
-    /// Should normally be set only when <paramref name="reset"/> is <see langword="true"/>,
-    /// otherwise the first <paramref name="skip"/> items in each batch will be skipped, which is
-    /// not usually the desired behavior.
+    /// Should normally be set only when fetching the first batch (i.e. when <paramref
+    /// name="continuationKey"/> is <see langword="null"/>), otherwise the first <paramref
+    /// name="skip"/> items in each batch will be skipped, which is not usually the desired
+    /// behavior.
     /// </para>
     /// </param>
     /// <param name="take">
@@ -321,7 +322,8 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// The name of a type discriminator property. Optional.
     /// </param>
     /// <param name="typeDiscriminatorValue">
-    /// The value of the type discriminator property which items must have in order to be returned. Optional.
+    /// The value of the type discriminator property which items must have in order to be returned.
+    /// Optional.
     /// </param>
     /// <param name="continuationKey">
     /// A continuation key (from the return value of a previous call to this method).
@@ -331,7 +333,8 @@ public class IndexedDbService(IJSRuntime jsRuntime) : IAsyncDisposable
     /// </param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
     /// <returns>
-    /// A list of results for this batch, and a continuation key for the next batch, if there are more results.
+    /// A list of results for this batch, and a continuation key for the next batch, if there are
+    /// more results.
     /// </returns>
     /// <remarks>
     /// <para>

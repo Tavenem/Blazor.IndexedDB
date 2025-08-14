@@ -152,33 +152,30 @@ public abstract class IndexedDbStore<TItem>(
     /// Retrieves a batch of items from an IndexedDB object store.
     /// </summary>
     /// <typeparam name="TValue">The type of value being retrieved.</typeparam>
-    /// <param name="reset">
-    /// <para>
-    /// Whether to restart iteration from the beginning.
-    /// </para>
-    /// <para>
-    /// When <see langword="false"/>, successive calls to this method will fetch batches of items
-    /// from the store until no more items remain to be enumerated. At that point, all following
-    /// calls will return an empty array, until <see langword="true"/> is passed for this parameter.
-    /// </para>
-    /// </param>
     /// <param name="skip">
     /// <para>
     /// The number of items to skip. Optional.
     /// </para>
     /// <para>
-    /// Should normally be set only when <paramref name="reset"/> is <see langword="true"/>,
-    /// otherwise the first <paramref name="skip"/> items in each batch will be skipped, which is
-    /// not usually the desired behavior.
+    /// Should normally be set only when fetching the first batch (i.e. when <paramref
+    /// name="continuationKey"/> is <see langword="null"/>), otherwise the first <paramref
+    /// name="skip"/> items in each batch will be skipped, which is not usually the desired
+    /// behavior.
     /// </para>
     /// </param>
     /// <param name="take">
     /// The maximum number of items to take. Optional.
     /// </param>
+    /// <param name="continuationKey">
+    /// A continuation key (from the return value of a previous call to this method).
+    /// </param>
     /// <param name="typeInfo">
     /// <see cref="JsonTypeInfo{T}"/> for <typeparamref name="TValue"/>.
     /// </param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/>.</param>
+    /// <returns>
+    /// A list of results for this batch, and a continuation key for the next batch, if there are more results.
+    /// </returns>
     /// <remarks>
     /// <para>
     /// This method can be used directly, but it may be more intuitive to call <c>Query{T}</c> when
@@ -192,18 +189,18 @@ public abstract class IndexedDbStore<TItem>(
     /// type (or which inherit from a common type).
     /// </para>
     /// </remarks>
-    public IAsyncEnumerable<TValue> GetBatchAsync<TValue>(
-        bool reset = false,
+    public Task<(List<TValue> Items, string? ContinuationKey)> GetBatchAsync<TValue>(
         int? skip = null,
         int? take = null,
+        string? continuationKey = null,
         JsonTypeInfo<TValue>? typeInfo = null,
         CancellationToken cancellationToken = default) where TValue : TItem => Database.Service.GetBatchAsync(
             this,
-            reset,
             skip,
             take,
             GetTypeDiscriminatorName<TValue>(),
             GetTypeDiscriminatorValue<TValue>(),
+            continuationKey,
             typeInfo,
             cancellationToken);
 
