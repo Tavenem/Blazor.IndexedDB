@@ -47,11 +47,13 @@ public static class MicrosoftExtensionsDependencyInjection
         string databaseName,
         IEnumerable<string>? objectStores = null,
         int? version = null,
-        JsonSerializerOptions? jsonSerializerOptions = null)
+        JsonSerializerOptions? jsonSerializerOptions = null,
+        string? key = null)
         => services.AddKeyedScoped(databaseName, (provider, name) => new IndexedDb(
             databaseName,
             provider.GetRequiredService<IndexedDbService>(),
             objectStores,
             version,
-            jsonSerializerOptions));
+            jsonSerializerOptions,
+            key));
 }
