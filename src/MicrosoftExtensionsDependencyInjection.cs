@@ -37,6 +37,9 @@ public static class MicrosoftExtensionsDependencyInjection
     /// <param name="jsonSerializerOptions">
     /// A configured <see cref="JsonSerializerOptions"/> instance. Optional.
     /// </param>
+    /// <param name="key">
+    /// The name of the property used as the primary key. Optional. Default is "id".
+    /// </param>
     /// <remarks>
     /// Note that use of dependency injection for database instances is optional. They can also be
     /// initialized on demand with their public constructor, which requires an instance of <see
@@ -47,11 +50,13 @@ public static class MicrosoftExtensionsDependencyInjection
         string databaseName,
         IEnumerable<string>? objectStores = null,
         int? version = null,
-        JsonSerializerOptions? jsonSerializerOptions = null)
+        JsonSerializerOptions? jsonSerializerOptions = null,
+        string? key = null)
         => services.AddKeyedScoped(databaseName, (provider, name) => new IndexedDb(
             databaseName,
             provider.GetRequiredService<IndexedDbService>(),
             objectStores,
             version,
-            jsonSerializerOptions));
+            jsonSerializerOptions,
+            key));
 }

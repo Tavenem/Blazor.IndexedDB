@@ -1,5 +1,25 @@
 # Changelog
 
+## 6.4
+### Added
+- `key` parameter to `AddIndexedDb` extension method to customize the property used as the primary key in stored objects
+
+## 6.3
+### Added
+- Support for customizing the `indexedDb keyPath`
+
+## 6.2
+### Fixed
+- Batching bug when requesting exactly 20 items in a query
+
+## 6.1
+### Fixed
+- Batching bug when requesting more than 20 items in a query
+
+## 6.0
+### Changed
+- All sync-over-async calls now throw a `NotImplementedException` with an appropriate message, and are decorated with both the `DoesNotReturn` and `UnsupportedOSPlatform("browser")` attributes
+
 ## 5.1
 ### Fixed
 - Loop when fetching more than 20 items
