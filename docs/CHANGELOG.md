@@ -1,6 +1,6 @@
 # Changelog
 
-## 7.0-preview.2
+## 7.0-preview.3
 ### Changed
 - Now targets .NET 10
 - The original `IndexedDbStore` has been divided into two separate implementations:

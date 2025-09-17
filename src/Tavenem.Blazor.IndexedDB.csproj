@@ -24,11 +24,6 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <!-- Disabled pending fix of https://github.com/dotnet/aspnetcore/issues/59291 -->
-    <CompressionEnabled>false</CompressionEnabled>
-  </PropertyGroup>
-
   <ItemGroup>
     <SupportedPlatform Include="browser" />
     <Content Update="assets\**" Pack="false">
@@ -40,7 +35,7 @@
 
   <ItemGroup>
     <PackageReference Include="Tavenem.DataStore" Version="3.1.27-preview-0011" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0-preview.7.25380.108" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0-rc.1.25451.107" />
   </ItemGroup>
 
   <PropertyGroup>

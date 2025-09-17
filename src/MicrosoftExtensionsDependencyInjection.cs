@@ -32,10 +32,22 @@ public static class MicrosoftExtensionsDependencyInjection
     /// The name of the database itself will be used as the name of a single object store if no
     /// store names are provided.
     /// </para>
+    /// <para>
+    /// Note carefully that if you choose to use multiple contexts to connect to the same database,
+    /// you must specify <em>all</em> the object stores you intend to use, even from other contexts.
+    /// The IndexedDb's <c>upgrade</c> method (where the object stores are specified) runs only when
+    /// the database is first opened, or when the version number is incremented. If you do not
+    /// specify all the object stores you intend to use on your first connection to that database,
+    /// they will not be available in that database instance, and you will not be able to add them
+    /// later.
+    /// </para>
     /// </param>
     /// <param name="version">The version number of the current schema.</param>
     /// <param name="jsonSerializerOptions">
     /// A configured <see cref="JsonSerializerOptions"/> instance. Optional.
+    /// </param>
+    /// <param name="key">
+    /// The name of the property used as the primary key. Optional. Default is "id".
     /// </param>
     /// <remarks>
     /// Note that use of dependency injection for database instances is optional. They can also be
