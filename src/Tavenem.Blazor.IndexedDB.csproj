@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Tavenem.DataStore" Version="3.1.27-preview-0011" />
+    <PackageReference Include="Tavenem.DataStore" Version="3.1.28" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.7" />
   </ItemGroup>
 
